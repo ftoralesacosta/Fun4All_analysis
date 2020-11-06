@@ -39,25 +39,27 @@ int main(int argc, char ** argv) {
 	TApplication *myapp = new TApplication("myapp",0,0);
 #endif
 
-	if(argc!=5){
-		cout << "Run this code as:\n\033[1;32m./analysis_momentum_resolution A B C filename.root\033[0m\n";
+	if(argc!=6){
+		cout << "Run this code as:\n\033[1;32m./analysis_momentum_resolution A B C D filename.root\033[0m\n";
 		cout << "where:\nA = 1 -> Widths from table will be used\n  = 2 -> Widths from table \033[1;31mwon't\033[0m be used\n";
 		cout << "B = 1 -> Table will be updated\n  = 2 -> Table \033[1;31mwon't\033[0m be updated\n";
 		cout << "C = 1 -> Run code and quit\n  = 2 -> Run code and show plots\n";
+		cout << "D = 1 -> Apply DeltaR Selection\n  = 2 -> Don't apply DeltaR Selection\n";
 		exit(0);
 	}
 
 	bool use_widths = true;
 	bool update_tab = false;
 	bool keep_plots = false;
-
+	bool DeltaR_Cut = true;
+	
 	if (!fs::is_directory("../data"  ) || !fs::exists("../data"  )) fs::create_directory("../data"  ); // Create directory if it does not exist
 	if (!fs::is_directory("tables"   ) || !fs::exists("tables"   )) fs::create_directory("tables"   );
 	if (!fs::is_directory("../output") || !fs::exists("../output")) fs::create_directory("../output");
 	if (!fs::is_directory("fits"     ) || !fs::exists("fits"     )) fs::create_directory("fits"     );
 	if (!fs::is_directory("results"  ) || !fs::exists("results"  )) fs::create_directory("results"  );
 
-	cout << "\033[1;31m********************************************************************\nUSEFUL INFO:\033[0m\nWill be loading data from file: '" << argv[4] << "' assumed to be in directory 'data'" << endl;
+	cout << "\033[1;31m********************************************************************\nUSEFUL INFO:\033[0m\nWill be loading data from file: '" << argv[5] << "' assumed to be in directory 'data'" << endl;
 
 	if     (atoi(argv[1])==1){use_widths = true ;	cout << "Will be using widths from table\n" ;}
 	else if(atoi(argv[1])==2){use_widths = false;	cout << "Won't be using widths from table\n";}
@@ -71,10 +73,15 @@ int main(int argc, char ** argv) {
 	else if(atoi(argv[3])==2){keep_plots = true ;	cout << "Will run and show the plots\n" ; }
 	else{cout << "Something wrong with your election of input parameter 'C'. Bailing out!\n"; exit(0);}
 
+	if     (atoi(argv[4])==1){DeltaR_Cut = true ;   cout << "Table will be updated\n" ;}
+	else if(atoi(argv[4])==2){DeltaR_Cut = false;   cout << "Table won't be updated\n";}
+	else{cout << "Something wrong with your election of input parameter 'B'. Bailing out!\n"; exit(0);}
+
+
 	// -------------------------
 	// Binning
 	float eta_bin[] = {-2.0,-1.0,0.0,1.0,2.0,4.0};
-	float mom_bin[] = {4.,5.,6.,8.,10.,12.,20.};
+	float mom_bin[] = {4.,6.,8.,10.,12.,20.};
 
 	const int size_eta_bin = sizeof(eta_bin)/sizeof(*eta_bin);
 	const int size_mom_bin = sizeof(mom_bin)/sizeof(*mom_bin);
@@ -83,7 +90,7 @@ int main(int argc, char ** argv) {
 	TVectorT<double> TVT_mom_bin(size_mom_bin);	for(int i = 0 ; i < size_mom_bin ; i++) TVT_mom_bin[i] = mom_bin[i];
 	// -------------------------
 	// useful strings
-	string raw_fname = argv[4];
+	string raw_fname = argv[5];
 	TString infile = "../data/" + raw_fname;
 	raw_fname.resize(raw_fname.size()-5);
 	TString outfile = "../output/output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
@@ -112,7 +119,6 @@ int main(int argc, char ** argv) {
 	TTreeReaderArray<Float_t> gEta(Tree,"matched_charged_truthEta");
 	TTreeReaderArray<Float_t> gPhi(Tree,"matched_charged_truthPhi");
 	TTreeReaderArray<Float_t> gPt(Tree,"matched_charged_truthPt");
-	
 	
 	// -------------------------------------------------------------
 	fstream tab;
@@ -162,17 +168,22 @@ int main(int argc, char ** argv) {
 		h1_dph_p_et_bins[et] = new TH1F*[size_mom_bin-1];
 		for(int p = 0 ; p < size_mom_bin-1 ; p++){
 			if(use_widths){
-				h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),";dE/E;Counts",40,
+				h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),";dP/P;Counts",40,
 							  approx_mean_dpp[et][p]-approx_sig_dpp_3_0[et][p],approx_mean_dpp[et][p]+approx_sig_dpp_3_0[et][p]);
 				h1_dth_p_et_bins[et][p] = new TH1F(Form("h1_dth_p_et_bins_%i_%i",et,p),";d#theta [rad];Counts",40,
 							  approx_mean_dth[et][p]-approx_sig_dth_3_0[et][p],approx_mean_dth[et][p]+approx_sig_dth_3_0[et][p]);
 				h1_dph_p_et_bins[et][p] = new TH1F(Form("h1_dph_p_et_bins_%i_%i",et,p),";d#phi [rad];Counts",40,
 							  approx_mean_dph[et][p]-approx_sig_dph_3_0[et][p],approx_mean_dph[et][p]+approx_sig_dph_3_0[et][p]);
 			}
-			else{
-			  h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),";dE/E;Counts"         ,40,-0.5  ,1.5  );
-				h1_dth_p_et_bins[et][p] = new TH1F(Form("h1_dth_p_et_bins_%i_%i",et,p),";d#theta [rad];Counts",40,-0.2,0.2);
-				h1_dph_p_et_bins[et][p] = new TH1F(Form("h1_dph_p_et_bins_%i_%i",et,p),";d#phi [rad];Counts"  ,40,-0.2  ,0.2  );
+			else{//set histo binning and name
+			  h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),
+							     ";dP/P;Counts",80,-0.4,0.4  );
+			  
+			  h1_dth_p_et_bins[et][p] = new TH1F(Form("h1_dth_p_et_bins_%i_%i",et,p),
+							     ";d#theta [rad];Counts",120,-0.02,0.02);
+			  
+				h1_dph_p_et_bins[et][p] = new TH1F(Form("h1_dph_p_et_bins_%i_%i",et,p),
+								   ";d#phi [rad];Counts"  ,40,-0.1  ,0.1  );
 }
 
 			h1_dpp_p_et_bins[et][p] -> SetTitle(Form("%.1f < |#eta| < %.1f, %.1f < E < %.1f GeV",eta_bin[et],eta_bin[et+1],mom_bin[p],mom_bin[p+1]));
@@ -186,9 +197,9 @@ int main(int argc, char ** argv) {
 	TH1F ** h1_dph_v_p_et_bins = new TH1F*[size_eta_bin-1];
 	TH2F * mom_response = new TH2F("mom_response","P_{Charge}^{Reco} vs. P_{Charge}^{Truth}",50,0,50,0,50,0);
 	for(int et = 0 ; et < size_eta_bin-1 ; et++){
-		h1_dpp_v_p_et_bins[et] = new TH1F(Form("h1_dpp_v_p_et_bins_%i",et),";E [GeV];dE/E [%]"      ,size_mom_bin-1,mom_bin);	prettyTH1F( h1_dpp_v_p_et_bins[et] , 50+et , 20 , 1. , 100. );
-		h1_dth_v_p_et_bins[et] = new TH1F(Form("h1_dth_v_p_et_bins_%i",et),";E [GeV];d#theta [rad]",size_mom_bin-1,mom_bin);	prettyTH1F( h1_dth_v_p_et_bins[et] , 50+et , 20 , 0.001 , 1.  );
-		h1_dph_v_p_et_bins[et] = new TH1F(Form("h1_dph_v_p_et_bins_%i",et),";E [GeV];d#phi [rad]"  ,size_mom_bin-1,mom_bin);	prettyTH1F( h1_dph_v_p_et_bins[et] , 50+et , 20 , 0.001 , 1. );
+		h1_dpp_v_p_et_bins[et] = new TH1F(Form("h1_dpp_v_p_et_bins_%i",et),";P [GeV/c];dP/P [%]"      ,size_mom_bin-1,mom_bin);	prettyTH1F( h1_dpp_v_p_et_bins[et] , 50+et , 20 , 1. , 100. );
+		h1_dth_v_p_et_bins[et] = new TH1F(Form("h1_dth_v_p_et_bins_%i",et),";P [GeV/c];d#theta [rad]",size_mom_bin-1,mom_bin);	prettyTH1F( h1_dth_v_p_et_bins[et] , 50+et , 20 , 0.001 , 1.  );
+		h1_dph_v_p_et_bins[et] = new TH1F(Form("h1_dph_v_p_et_bins_%i",et),";P [GeV/c];d#phi [rad]"  ,size_mom_bin-1,mom_bin);	prettyTH1F( h1_dph_v_p_et_bins[et] , 50+et , 20 , 0.001 , 1. );
 	}
 
 	TH1F ** h1_dpp_v_et_p_bins = new TH1F*[size_mom_bin-1];
@@ -196,7 +207,7 @@ int main(int argc, char ** argv) {
 	TH1F ** h1_dph_v_et_p_bins = new TH1F*[size_mom_bin-1];
 
 	for(int p = 0 ; p < size_mom_bin-1 ; p++){
-		h1_dpp_v_et_p_bins[p] = new TH1F(Form("h1_dpp_v_et_p_bins_%i",p),";#eta;dE/E [%]"      ,size_eta_bin-1,eta_bin);	prettyTH1F( h1_dpp_v_et_p_bins[p] , 50+p , 20 , 1. , 100. );
+		h1_dpp_v_et_p_bins[p] = new TH1F(Form("h1_dpp_v_et_p_bins_%i",p),";#eta;dP/P [%]"      ,size_eta_bin-1,eta_bin);	prettyTH1F( h1_dpp_v_et_p_bins[p] , 50+p , 20 , 1. , 100. );
 		h1_dth_v_et_p_bins[p] = new TH1F(Form("h1_dth_v_et_p_bins_%i",p),";#eta;d#theta [rad]",size_eta_bin-1,eta_bin);	prettyTH1F( h1_dth_v_et_p_bins[p] , 50+p , 20 , 0.001 , 1.  );
 		h1_dph_v_et_p_bins[p] = new TH1F(Form("h1_dph_v_et_p_bins_%i",p),";#eta;d#phi [rad]"  ,size_eta_bin-1,eta_bin);	prettyTH1F( h1_dph_v_et_p_bins[p] , 50+p , 20 , 0.001 , 1000. );
 	}
@@ -206,12 +217,13 @@ int main(int argc, char ** argv) {
 	int ev = 0;
 	while ( Tree.Next() ){
 	  if (ev%10000==0) fprintf(stderr,"%d: Entry %i out of %d\n",__LINE__,ev,nEntries);
-	  if (ev==500000) break;
+	  //if (ev==500000) break;
 	  for (int n = 0; n < *njets; ++n) {
 
-	    if (NConst[n] < 3) continue;
+	    if (NConst[n] < 4) continue;
 	    if (isnan(gE[n])) continue;
-
+	    //if ( (abs(Eta[n]) > 1.1-sqrt(0.5)/2) && (abs(Eta[n]) < 1.1+sqrt(0.5)/2) ) continue;
+	    if ( (abs(Eta[n]) > 1.) && (abs(Eta[n]) < 1.2) ) continue;
 	    ROOT::Math::PtEtaPhiEVector Lorentz(Pt[n],Eta[n],Phi[n],E[n]);
 	    ROOT::Math::PtEtaPhiEVector gLorentz(gPt[n],gEta[n],gPhi[n],gE[n]);
 		  
@@ -219,23 +231,23 @@ int main(int argc, char ** argv) {
 	    
 	    float geta = gLorentz.Eta();
 	    
-	    float E_reco = Lorentz.E();
-	    float E_truth = gLorentz.E();
-	    float dE_E = (E_reco-E_truth)/E_truth;
-	    //float dE_E = (E_reco)/E_truth;		
-	    mom_response->Fill(gLorentz.E(),Lorentz.E());
+	    float P_reco = Lorentz.P();
+	    float P_truth = gLorentz.P();
+	    float dP_P = (P_reco-P_truth)/P_truth;
+	    //float dP_P = (P_reco)/P_truth;		
+	    mom_response->Fill(gLorentz.P(),Lorentz.P());
 	    
 	    float dph = Lorentz.Phi() - gLorentz.Phi();
-
-	    //cout<<"Delta Theta = "<< dth <<" dE_E = " << dE_E << " Delta Phi = " << dph << endl;
+	    float dR = ROOT::Math::VectorUtil::DeltaR(Lorentz,gLorentz);
+	    //if( (DeltaR_Cut) && (abs(dph) > 0.05)) continue;
+	    if ( (DeltaR_Cut) && (dR > 0.1) ) continue;
 	    
-	    // Filling histograms
+	        //Filling 
 		for(int et = 0 ; et < size_eta_bin-1 ; et++){
 			if( geta >  eta_bin[et] &&  geta <= eta_bin[et+1] ){
 				for(int p = 0 ; p < size_mom_bin-1 ; p++){
-					if( E_truth > mom_bin[p] && E_truth <= mom_bin[p+1] ){
-					  //if(abs(dph) < 0.05) //better dE/E with this cut, but not physical
-					    h1_dpp_p_et_bins[et][p] -> Fill( dE_E );
+				  if( P_truth > mom_bin[p] && P_truth <= mom_bin[p+1] ){
+					    h1_dpp_p_et_bins[et][p] -> Fill( dP_P );
 					  h1_dth_p_et_bins[et][p] -> Fill( dth  );
 					  h1_dph_p_et_bins[et][p] -> Fill( dph  );
 					}	
@@ -294,13 +306,34 @@ int main(int argc, char ** argv) {
 		  else{
 
 		    //double_gaus args: histo, min1, max1, min2, max2, eta bin, p bin
-		    f_gaus_dpp[et][p] = double_gaus(h1_dpp_p_et_bins[et][p],-0.2,0.1,-0.5,1.5,TString("dpp"),et,p);
-		    //f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"landau",-0.5 ,0l.5 );
-			  //f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"[0]*TMath::Landau(x,[1],[2])",-0.5,1.5);
-		    f_gaus_dth[et][p] = double_gaus(h1_dth_p_et_bins[et][p],-0.04,0.04,-0.2,0.2,TString("dth"),et,p);
-		    f_gaus_dph[et][p] = double_gaus(h1_dph_p_et_bins[et][p],-0.04,0.04,-0.2,0.2,TString("dph"),et,p);
-			  // f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.2,0.2);
-			  // f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.2  ,0.2  );
+		    
+		    //f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.2,0.2);
+		    //f_gaus_dpp[et][p]->SetParameter(1,0.);
+
+		    if (DeltaR_Cut){
+		      //f_gaus_dpp[et][p] = double_gaus(h1_dpp_p_et_bins[et][p],-0.02,0.02,-0.2,0.01,TString("dpp"),et,p); //dphi cut
+		      f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.02,0.02);
+		      f_gaus_dth[et][p] = double_gaus(h1_dth_p_et_bins[et][p],-0.002,0.002,-0.005,0.005,TString("dth"),et,p);
+		      f_gaus_dph[et][p] = double_gaus(h1_dph_p_et_bins[et][p],-0.015,0.015,-0.08,0.08,TString("dph"),et,p);
+		      //f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.02,0.02);
+		      if (eta_bin[et] > 1.1){
+			f_gaus_dpp[et][p] = double_gaus(h1_dpp_p_et_bins[et][p],-0.02,0.02,-0.04,0.04,TString("dpp"),et,p);
+			if (mom_bin[p] > 9)
+			f_gaus_dph[et][p] = double_gaus(h1_dph_p_et_bins[et][p],-0.02,0.02,-0.01,0.1,TString("dph"),et,p);
+		      }
+		      if (eta_bin[et] < 0.1)
+			f_gaus_dth[et][p] = double_gaus(h1_dth_p_et_bins[et][p],-0.002,0.002,-0.02,0.02,TString("dth"),et,p);
+		    }
+		    
+		    else{
+		    f_gaus_dpp[et][p] = double_gaus(h1_dpp_p_et_bins[et][p],-0.08,0.08,-0.5,1.5,TString("dpp"),et,p);
+		    f_gaus_dth[et][p] = double_gaus(h1_dth_p_et_bins[et][p],-0.02,0.02,-0.2,0.2,TString("dth"),et,p);
+		    f_gaus_dph[et][p] = double_gaus(h1_dph_p_et_bins[et][p],-0.02,0.02,-0.2,0.2,TString("dph"),et,p);
+		    }
+ // if (eta_bin[et] < 1){
+		    //   //f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.3,0.1);
+		    //   f_gaus_dpp[et][p] = double_gaus(h1_dpp_p_et_bins[et][p],-0.3,0.1,-0.5,0.2,TString("dpp"),et,p);
+		    // }
 		  }
 		}
 	}
@@ -312,7 +345,7 @@ int main(int argc, char ** argv) {
 	TCanvas ** c_fits_ph = new TCanvas*[size_eta_bin-1];
 
 	for(int et = 0 ; et < size_eta_bin-1 ; et++){
-		c_fits_p [et] = new TCanvas(Form("c_fits_p_%i" ,et),Form("dE/E  , %.1f<eta<%.1f",eta_bin[et],eta_bin[et+1]),1000,800);	c_fits_p [et] -> Divide(5,2);
+		c_fits_p [et] = new TCanvas(Form("c_fits_p_%i" ,et),Form("dP/P  , %.1f<eta<%.1f",eta_bin[et],eta_bin[et+1]),1000,800);	c_fits_p [et] -> Divide(5,2);
 		c_fits_th[et] = new TCanvas(Form("c_fits_th_%i",et),Form("dtheta, %.1f<eta<%.1f",eta_bin[et],eta_bin[et+1]),1000,800);	c_fits_th[et] -> Divide(5,2);
 		c_fits_ph[et] = new TCanvas(Form("c_fits_ph_%i",et),Form("dphi  , %.1f<eta<%.1f",eta_bin[et],eta_bin[et+1]),1000,800);	c_fits_ph[et] -> Divide(5,2);
 
@@ -468,7 +501,7 @@ int main(int argc, char ** argv) {
 	leg1 -> Draw("same");
 	TLegend * leg2 = new TLegend(0.20,0.5,0.65,0.95);
 	leg2 -> SetLineColor(0);
-	for(int p = 0 ; p < size_mom_bin-1 ; p++) leg2 -> AddEntry(h1_dph_v_et_p_bins[p],Form("%.1f < E < %.1f GeV",mom_bin[p],mom_bin[p+1]));
+	for(int p = 0 ; p < size_mom_bin-1 ; p++) leg2 -> AddEntry(h1_dph_v_et_p_bins[p],Form("%.1f < P < %.1f GeV",mom_bin[p],mom_bin[p+1]));
 	c1 -> cd(4);
 	leg2 -> Draw("same");
 	c1 -> Modified();
@@ -574,11 +607,13 @@ void better_yaxis(TH1F ** h1_array,int array_size){
 
 TF1 * double_gaus(TH1F *h1,float min1, float max1, float min2, float max2,TString type ,int et,int p){
   //First range is for narrow peak. Second range is full fit range desired.
+
   Double_t par[6];
   TF1 *G1 = new TF1 (Form("G1_%i_%i",et,p),"gaus",min1,max1);
   TF1 *G2 = new TF1 (Form("G2_%i_%i",et,p),"gaus",min2,max2);
   h1->Fit(G1,"R"); G1->GetParameters(&par[0]);
   h1->Fit(G2,"R"); G2->GetParameters(&par[3]);
+
   TF1 *double_gaus = new TF1(Form("f_gaus_%s_%i_%i",type.Data(),et,p),"gaus(0)+gaus(3)",min2,max2);
   double_gaus->SetParameters(par);
   return double_gaus;
