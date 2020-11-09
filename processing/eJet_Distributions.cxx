@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
   TH1F *nconst_diff = new TH1F("nconst_diff","Truth - Reco No. Constituents",20,0,20);
   TH1F *comp_eta = new TH1F("comp_eta","Jet Component #eta",40,-4,4);
   TH1F *comp_pid = new TH1F("comp_pid","Jet Component PID",1000,-500,500);
-  TH1F* Q2 = new TH1F("Q2","Q^{2}",50,0,500);
+  TH1F* Q2 = new TH1F("Q2","Q^{2}",100,0,500);
   
   gStyle->SetMarkerColor(2);
   gStyle->SetLineColor(2);
@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
   TH1F *nconst_diff_anticut = new TH1F("nconst_diff_anticut","Truth - Reco No. Constituents",20,0,20);
   TH1F *comp_eta_anticut = new TH1F("comp_eta_anticut","Jet Component #eta",40,-4,4);
   TH1F *comp_pid_anticut = new TH1F("comp_pid_anticut","Jet Component PID (Anti-Cut)",1000,-500,500);
-  TH1F* Q2_anticut = new TH1F("Q2_anticut","Q^{2} (anticut)",50,0,500);
+  TH1F* Q2_anticut = new TH1F("Q2_anticut","Q^{2} (anticut)",100,0,500);
   //TH1I * PID = new TH1I("PID_Histo", "PID",1000,-500,500);
 
   float max_DeltaR = 0.1; //reco-truth match
@@ -200,7 +200,7 @@ int main(int argc, char *argv[])
       ROOT::Math::PtEtaPhiEVector e_vector (electron_gPt,electron_gEta,electron_gPhi,electron_gE);
       Float_t Q_square = calc_Q_square(20,e_vector); //electron Beam of 20 GeV/c
       
-
+      //CUTS:
       if (dR > max_DeltaR) continue;
       if (std::isnan(gE[n])) continue;
       if (NComponent[n] < min_comp) continue;
