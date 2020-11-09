@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
   TH1F *nconst_diff = new TH1F("nconst_diff","Truth - Reco No. Constituents",20,0,20);
   TH1F *comp_eta = new TH1F("comp_eta","Jet Component #eta",40,-4,4);
   TH1F *comp_pid = new TH1F("comp_pid","Jet Component PID",1000,-500,500);
-  TH1F* Q2 = new TH1F("Q2","Q^{2}",500,0,500);
+  TH1F* Q2 = new TH1F("Q2","Q^{2}",50,0,500);
   
   gStyle->SetMarkerColor(2);
   gStyle->SetLineColor(2);
@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
   TH1F *nconst_diff_anticut = new TH1F("nconst_diff_anticut","Truth - Reco No. Constituents",20,0,20);
   TH1F *comp_eta_anticut = new TH1F("comp_eta_anticut","Jet Component #eta",40,-4,4);
   TH1F *comp_pid_anticut = new TH1F("comp_pid_anticut","Jet Component PID (Anti-Cut)",1000,-500,500);
-  TH1F* Q2_anticut = new TH1F("Q2_anticut","Q^{2} (anticut)",500,0,500);
+  TH1F* Q2_anticut = new TH1F("Q2_anticut","Q^{2} (anticut)",50,0,500);
   //TH1I * PID = new TH1I("PID_Histo", "PID",1000,-500,500);
 
   float max_DeltaR = 0.1; //reco-truth match
@@ -191,25 +191,24 @@ int main(int argc, char *argv[])
     //cout<<endl<<njets<<endl;
     for (int n = 0; n < njets; ++n) {//ALL truth jet loop
       //cuts
-      if (std::isnan(gE[n])) continue;
-      if (NComponent[n] < min_comp) continue;
-      if (E[n] < minE) continue;
-      if ( (abs(Eta[n]) > 1.) && (abs(Eta[n]) < 1.2) ) continue;
-      // cout<<endl<<E[n]<<endl;
-      // cout<<endl<<gE[n]<<endl;
+
       ROOT::Math::PtEtaPhiEVector Lorentz(Pt[n],Eta[n],Phi[n],E[n]);
       ROOT::Math::PtEtaPhiEVector gLorentz(gPt[n],gEta[n],gPhi[n],gE[n]);
       float dR = ROOT::Math::VectorUtil::DeltaR(Lorentz,gLorentz);
       float dE_E = (E[n] - gE[n]) / gE[n];
-      if (dR > max_DeltaR) continue;
 
       ROOT::Math::PtEtaPhiEVector e_vector (electron_gPt,electron_gEta,electron_gPhi,electron_gE);
       Float_t Q_square = calc_Q_square(20,e_vector); //electron Beam of 20 GeV/c
       
-      bool cut_to_study;
-      //cut_to_study = (dR < max_DeltaR);
+
+      if (dR > max_DeltaR) continue;
+      if (std::isnan(gE[n])) continue;
+      if (NComponent[n] < min_comp) continue;
+      if (E[n] < minE) continue;
+      if ( (abs(Eta[n]) > 1.) && (abs(Eta[n]) < 1.2) ) continue;
+      bool cut_to_study; //Check continue statements
       cut_to_study = (abs(dE_E) < max_dE_E);
-      jet_cut_counter[0]+=1.;
+     
       if (cut_to_study)
 	{
 	  reco_E->Fill(E[n]);
@@ -241,7 +240,8 @@ int main(int argc, char *argv[])
 	  }
 	  Q2_anticut->Fill(Q_square);    
 	}
-
+      
+      jet_cut_counter[0]+=1.; //Jets that only pass continue statements
       Float_t True_DeltaPhi = TMath::Abs(TVector2::Phi_mpi_pi(electron_gPhi - gPhi[n]));
       Float_t Reco_DeltaPhi = TMath::Abs(TVector2::Phi_mpi_pi(electron_gPhi - Phi[n]));
       dPhiTj->Fill(True_DeltaPhi);
