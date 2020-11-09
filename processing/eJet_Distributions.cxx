@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
   array<Float_t, MaxNumJets> E,Eta,Phi,Pt,gE,gEta,gPhi,gPt;
   array<Int_t, MaxNumJets> NComponent,gNComponent;
   Float_t electron_gE,electron_gEta,electron_gPhi,electron_gPt;
-  array<array<Float_t, kMaxConstituents >, MaxNumJets > gComponent_Eta;
+  array<array<Float_t, kMaxConstituents >, MaxNumJets > gComponent_Eta,gComponent_PID;
 
   T -> SetBranchAddress("njets",&njets);
   T -> SetBranchAddress("e",&E);
@@ -112,7 +112,8 @@ int main(int argc, char *argv[])
   T -> SetBranchAddress("matched_charged_truthPt",&Pt);
   T -> SetBranchAddress("matched_charged_truthNComponent",&gNComponent);
   T -> SetBranchAddress("matched_Constituent_truthEta", gComponent_Eta.data());
-
+  T -> SetBranchAddress("matched_Constituent_truthPID",gComponent_PID.data());
+			
   T -> SetBranchAddress("electron_truthE",&electron_gE);
   T -> SetBranchAddress("electron_truthEta",&electron_gEta);
   T -> SetBranchAddress("electron_truthPhi",&electron_gPhi);
@@ -150,15 +151,20 @@ int main(int argc, char *argv[])
   TH1F * dEtaRj = new TH1F("dEta_e_RecoJet", "|#Delta#eta| (#eta_{e} - #eta^{Reco}_{Jet})", 80,-10,10);
 
   //Simple Distributions
+  gStyle->SetMarkerColor(4);
+  gStyle->SetLineColor(4);
   TH1F *reco_phi = new TH1F("reco_phi","Reconstructed Jet #varphi",16,-M_PI,M_PI); 
   TH1F *reco_eta = new TH1F("reco_eta","Recontsructed Jet #eta",50,-5,5);
   TH1F *reco_E = new TH1F("reco_E","Reconstructed Jet Energy",100,0,50);
   TH1F *reco_nconst = new TH1F("reco_nconst","Reconstructed Jet N Component",20,0,20);
   TH1F *reco_P = new TH1F("reco_P","Reconstructed Jet Momentum",100,0,50);
   TH1F *nconst_diff = new TH1F("nconst_diff","Truth - Reco No. Constituents",20,0,20);
-  //TH1F *comp_eta = new TH1F("comp_eta","Jet Component #eta",40,-4,4);
-
+  TH1F *comp_eta = new TH1F("comp_eta","Jet Component #eta",40,-4,4);
+  TH1F *comp_pid = new TH1F("comp_pid","Jet Component PID",1000,-500,500);
+  TH1F* Q2 = new TH1F("Q2","Q^{2}",500,0,500);
+  
   gStyle->SetMarkerColor(2);
+  gStyle->SetLineColor(2);
   TH1F *reco_phi_anticut = new TH1F("reco_phi(anti-cut)","Reconstructed Jet #varphi(anti-cut)",16,-M_PI,M_PI); 
   TH1F *reco_eta_anticut = new TH1F("reco_eta(anti-cut)","Recontsructed Jet #eta(anti-cut)",50,-5,5);
   TH1F *reco_E_anticut = new TH1F("reco_E(anti-cut)","Reconstructed Jet Energy(anti-cut)",100,0,50);
@@ -166,9 +172,9 @@ int main(int argc, char *argv[])
   TH1F *reco_P_anticut = new TH1F("reco_P(anti-cut)","Reconstructed Jet Momentum(anti-cut)",100,0,50);
   TH1F * RjoTj_anticut = new TH1F("PRecoJet_over_PTrueJet_anticut", "P_{Jet}^{True} - P_{Jet}^{True} / P^{True}_{Jet} (anti-cut) ",80,-0.4,0.4);
   TH1F *nconst_diff_anticut = new TH1F("nconst_diff_anticut","Truth - Reco No. Constituents",20,0,20);
-  //TH1F *comp_eta_anticut = new TH1F("comp_eta_anticut","Jet Component #eta",40,-4,4);
-    
-  TH1F* Q2 = new TH1F("Q2","Q^{2}",500,0,500);
+  TH1F *comp_eta_anticut = new TH1F("comp_eta_anticut","Jet Component #eta",40,-4,4);
+  TH1F *comp_pid_anticut = new TH1F("comp_pid_anticut","Jet Component PID (Anti-Cut)",1000,-500,500);
+  TH1F* Q2_anticut = new TH1F("Q2_anticut","Q^{2} (anticut)",500,0,500);
   //TH1I * PID = new TH1I("PID_Histo", "PID",1000,-500,500);
 
   float max_DeltaR = 0.1; //reco-truth match
@@ -181,7 +187,7 @@ int main(int argc, char *argv[])
     //while ( Tree.Next() ){
     T->GetEntry(ev);
     if (ev%10000==0) fprintf(stderr,"%d: Entry %lli out of %d\n",__LINE__,ev,nEntries);
-    if (ev == 50000) break;
+    //if (ev == 50000) break;
     //cout<<endl<<njets<<endl;
     for (int n = 0; n < njets; ++n) {//ALL truth jet loop
       //cuts
@@ -197,6 +203,9 @@ int main(int argc, char *argv[])
       float dE_E = (E[n] - gE[n]) / gE[n];
       if (dR > max_DeltaR) continue;
 
+      ROOT::Math::PtEtaPhiEVector e_vector (electron_gPt,electron_gEta,electron_gPhi,electron_gE);
+      Float_t Q_square = calc_Q_square(20,e_vector); //electron Beam of 20 GeV/c
+      
       bool cut_to_study;
       //cut_to_study = (dR < max_DeltaR);
       cut_to_study = (abs(dE_E) < max_dE_E);
@@ -211,8 +220,11 @@ int main(int argc, char *argv[])
 	  RjoTj->Fill(dE_E);
 	  jet_cut_counter[1]+=1.; //increment
 	  nconst_diff->Fill(gNComponent[n] - NComponent[n]);
- 	  // for (int i = 0; i < NComponent[n]; i++)
-	  //   comp_eta->Fill();
+	  for (int i = 0; i < NComponent[n]; i++){
+	    comp_eta->Fill(gComponent_Eta[n][i]);
+	    comp_pid->Fill(gComponent_PID[n][i]);
+	  }
+	  Q2->Fill(Q_square);
 	}
       else
 	{
@@ -223,6 +235,11 @@ int main(int argc, char *argv[])
 	  reco_nconst_anticut->Fill(NComponent[n]);
 	  RjoTj_anticut->Fill(dE_E);
 	  nconst_diff_anticut->Fill(gNComponent[n] - NComponent[n]);
+	  for (int i = 0; i < NComponent[n]; i++){
+	    comp_eta_anticut->Fill(gComponent_Eta[n][i]);
+	    comp_pid_anticut->Fill(gComponent_PID[n][i]);
+	  }
+	  Q2_anticut->Fill(Q_square);    
 	}
 
       Float_t True_DeltaPhi = TMath::Abs(TVector2::Phi_mpi_pi(electron_gPhi - gPhi[n]));
@@ -232,10 +249,6 @@ int main(int argc, char *argv[])
       dEtaTj->Fill(electron_gEta-gEta[n]);
       dEtaRj->Fill(electron_gEta-Eta[n]);
       
-      ROOT::Math::PtEtaPhiEVector e_vector (electron_gPt,electron_gEta,electron_gPhi,electron_gE);
-      //ROOT::Math::VectorUtil::DeltaPhi()
-      Float_t Q_square = calc_Q_square(20,e_vector); //electron Beam of 20 GeV/c
-      Q2->Fill(Q_square);    
       //Inclusive Spectra
       Rjve->Fill(electron_gE,E[n]);
       Tjve->Fill(electron_gE,gE[n]);
@@ -277,7 +290,8 @@ int main(int argc, char *argv[])
   RjoTj->GetXaxis()->SetTitle("dP/P");
   RjoTj->Write();
   nconst_diff->Write();
-
+  comp_eta->Write();
+  comp_pid->Write();
   
   //reco_P_anticut->Scale(1./reco_P_anticut->GetEntries());
   //reco_E_anticut->Scale(1./reco_E_anticut->GetEntries());
@@ -290,6 +304,9 @@ int main(int argc, char *argv[])
   RjoTj_anticut->Write();
   reco_nconst_anticut->Write();
   nconst_diff_anticut->Write();
+  comp_eta_anticut->Write();
+  comp_pid_anticut->Write();
+  
   
   Tjve->GetXaxis()->SetTitle("E^{True}_{electron} [GeV]");
   Rjve->GetXaxis()->SetTitle("E^{True}_{electron} [GeV]");
@@ -319,6 +336,7 @@ int main(int argc, char *argv[])
   dEtaRj->Write();
 
   Q2->Write();
+  Q2_anticut->Write();
   // H_dR->Write();
   // H_NExtra_Matches->Write();
 
