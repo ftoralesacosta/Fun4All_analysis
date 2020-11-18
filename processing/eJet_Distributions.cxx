@@ -61,27 +61,7 @@ int main(int argc, char *argv[])
     std::cout << " Tree Fail " << std::endl;
     exit(EXIT_FAILURE);
   }
-  
-  // TTreeReader Tree("T",F);
-  // int nEntries = Tree.GetEntries();
-  // TTreeReaderValue<int> njets(Tree,"njets");
-  // TTreeReaderArray<Int_t> NConst(Tree,"nComponent");
-  // TTreeReaderArray<Float_t> E(Tree,"e");
-  // TTreeReaderArray<Float_t> Eta(Tree,"eta");
-  // TTreeReaderArray<Float_t> Phi(Tree,"phi");
-  // TTreeReaderArray<Float_t> Pt(Tree,"pt");
-  
-  // TTreeReaderArray<Float_t> gE(Tree,"matched_charged_truthE");
-  // TTreeReaderArray<Float_t> gEta(Tree,"matched_charged_truthEta");
-  // TTreeReaderArray<Float_t> gPhi(Tree,"matched_charged_truthPhi");
-  // TTreeReaderArray<Float_t> gPt(Tree,"matched_charged_truthPt");
-  // TTreeReaderArray<Int_t> gNComponent(Tree,"matched_charged_truthNComponent");
-
-  // TTreeReaderValue<Float_t> electron_gE(Tree,"electron_truthE");
-  // TTreeReaderValue<Float_t> electron_gEta(Tree,"electron_truthEta");
-  // TTreeReaderValue<Float_t> electron_gPhi(Tree,"electron_truthPhi");
-  // TTreeReaderValue<Float_t> electron_gPt(Tree,"electron_truthPt");
-  
+    
   // enum {MaxNumJets = 20,kMaxConstituents = 100};
   TString infile = argv[1];
   TFile * F = new TFile(infile);
@@ -97,8 +77,9 @@ int main(int argc, char *argv[])
   array<Float_t, MaxNumJets> E,Eta,Phi,Pt,gE,gEta,gPhi,gPt;
   array<Int_t, MaxNumJets> NComponent,gNComponent;
   Float_t electron_gE,electron_gEta,electron_gPhi,electron_gPt;
-  array<array<Float_t, kMaxConstituents >, MaxNumJets > gComponent_Eta,gComponent_PID;
-
+  array<array<Float_t, kMaxConstituents >, MaxNumJets > gComponent_Eta,gComponent_PID,
+                         gComponent_Pt,gComponent_Phi,gComponent_E, gComponent_Charge;
+  
   T -> SetBranchAddress("njets",&njets);
   T -> SetBranchAddress("e",&E);
   T -> SetBranchAddress("eta",&Eta);
@@ -108,11 +89,15 @@ int main(int argc, char *argv[])
   
   T -> SetBranchAddress("matched_charged_truthE",&gE);
   T -> SetBranchAddress("matched_charged_truthEta",&gEta);
-  T -> SetBranchAddress("matched_charged_truthPhi",&Phi);
+  T -> SetBranchAddress("matched_charged_truthPhi",&gPhi);
   T -> SetBranchAddress("matched_charged_truthPt",&Pt);
   T -> SetBranchAddress("matched_charged_truthNComponent",&gNComponent);
   T -> SetBranchAddress("matched_Constituent_truthEta", gComponent_Eta.data());
   T -> SetBranchAddress("matched_Constituent_truthPID",gComponent_PID.data());
+  T -> SetBranchAddress("matched_Constituent_truthPt",gComponent_Pt.data());
+    T -> SetBranchAddress("matched_Constituent_truthE",gComponent_E.data());
+    T -> SetBranchAddress("matched_Constituent_truthPhi",gComponent_Phi.data());
+  T -> SetBranchAddress("matched_Constituent_truthCharge",gComponent_Charge.data());
 			
   T -> SetBranchAddress("electron_truthE",&electron_gE);
   T -> SetBranchAddress("electron_truthEta",&electron_gEta);
@@ -162,6 +147,9 @@ int main(int argc, char *argv[])
   TH1F *comp_eta = new TH1F("comp_eta","Jet Component #eta",40,-4,4);
   TH1F *comp_pid = new TH1F("comp_pid","Jet Component PID",1000,-500,500);
   TH1F* Q2 = new TH1F("Q2","Q^{2}",100,0,500);
+
+  TH2F *P_Component_vs_JetEta = new TH2F("comp_p_vs_jetEta","Component P vs. #eta^{Jet}_{Truth}",25,-5,5,40,0,20);
+  TH2F *Pt_Component_vs_JetEta = new TH2F("comp_pT_vs_jetEta","Component p_{T} vs. #eta^{Jet}_{Truth}",25,-5,5,40,0,20);
   
   gStyle->SetMarkerColor(2);
   gStyle->SetLineColor(2);
@@ -177,21 +165,24 @@ int main(int argc, char *argv[])
   TH1F* Q2_anticut = new TH1F("Q2_anticut","Q^{2} (anticut)",100,0,500);
   //TH1I * PID = new TH1I("PID_Histo", "PID",1000,-500,500);
 
+  TH2F *P_Component_vs_JetEta_anticut = new TH2F("comp_p_vs_jetEta_anticut","Component P vs. #eta^{Jet}_{Truth} (anti-cut)",25,-5,5,40,0,20);
+  TH2F *Pt_Component_vs_JetEta_anticut = new TH2F("comp_pT_vs_jetEta_anticut","Component p_{T} vs. #eta^{Jet}_{Truth} (anticut)",25,-5,5,40,0,20);
+  
   float max_DeltaR = 0.1; //reco-truth match
-  int min_comp = 3;
+  int min_comp = 4;
   float minE = 4.0;
   float max_dE_E = 0.03;
   float jet_cut_counter[3] = {0};
 
   for (Long64_t ev = 0; ev < nEntries; ev++){
-    //while ( Tree.Next() ){
     T->GetEntry(ev);
     if (ev%10000==0) fprintf(stderr,"%d: Entry %lli out of %d\n",__LINE__,ev,nEntries);
-    //if (ev == 50000) break;
-    //cout<<endl<<njets<<endl;
-    for (int n = 0; n < njets; ++n) {//ALL truth jet loop
-      //cuts
+    //if (ev == 500000) break;
 
+    for (int n = 0; n < njets; ++n) {
+      if (std::isnan(gE[n])) continue; //reco jet must have a truth match
+      
+      //cuts
       ROOT::Math::PtEtaPhiEVector Lorentz(Pt[n],Eta[n],Phi[n],E[n]);
       ROOT::Math::PtEtaPhiEVector gLorentz(gPt[n],gEta[n],gPhi[n],gE[n]);
       float dR = ROOT::Math::VectorUtil::DeltaR(Lorentz,gLorentz);
@@ -202,13 +193,15 @@ int main(int argc, char *argv[])
       
       //CUTS:
       if (dR > max_DeltaR) continue;
-      if (std::isnan(gE[n])) continue;
       if (NComponent[n] < min_comp) continue;
       if (E[n] < minE) continue;
       if ( (abs(Eta[n]) > 1.) && (abs(Eta[n]) < 1.2) ) continue;
+      //if ((abs(dE_E) < max_dE_E)) continue;
       bool cut_to_study; //Check continue statements
       cut_to_study = (abs(dE_E) < max_dE_E);
-     
+      //cut_to_study = (NComponent[n] >= min_comp);
+      //cut_to_study =( (NComponent[n] > min_comp) && (E[n] > minE) );
+      //cut_to_study = true;
       if (cut_to_study)
 	{
 	  reco_E->Fill(E[n]);
@@ -217,15 +210,19 @@ int main(int argc, char *argv[])
 	  reco_phi->Fill(Phi[n]);
 	  reco_nconst->Fill(NComponent[n]);
 	  RjoTj->Fill(dE_E);
-	  jet_cut_counter[1]+=1.; //increment
 	  nconst_diff->Fill(gNComponent[n] - NComponent[n]);
+	  Q2->Fill(Q_square);
 	  for (int i = 0; i < NComponent[n]; i++){
+	    if (gComponent_Charge[n][i] == 0) continue;
 	    comp_eta->Fill(gComponent_Eta[n][i]);
 	    comp_pid->Fill(gComponent_PID[n][i]);
+	    ROOT::Math::PtEtaPhiEVector gConstLorentz(gComponent_Pt[n][i],gComponent_Eta[n][i],gComponent_Phi[n][i],gComponent_E[n][i]);
+	    P_Component_vs_JetEta->Fill(gEta[n],gConstLorentz.P());
+	    Pt_Component_vs_JetEta->Fill(gEta[n],gComponent_Pt[n][i]);
 	  }
-	  Q2->Fill(Q_square);
+	  jet_cut_counter[1]+=1.; //increment
 	}
-      else
+      else if (NComponent[n] >= 3)
 	{
 	  reco_E_anticut->Fill(E[n]);
 	  reco_P_anticut->Fill(Lorentz.P());
@@ -234,11 +231,16 @@ int main(int argc, char *argv[])
 	  reco_nconst_anticut->Fill(NComponent[n]);
 	  RjoTj_anticut->Fill(dE_E);
 	  nconst_diff_anticut->Fill(gNComponent[n] - NComponent[n]);
+	  Q2_anticut->Fill(Q_square);    
 	  for (int i = 0; i < NComponent[n]; i++){
+	    if (gComponent_Charge[n][i] == 0) continue;
 	    comp_eta_anticut->Fill(gComponent_Eta[n][i]);
 	    comp_pid_anticut->Fill(gComponent_PID[n][i]);
+	    ROOT::Math::PtEtaPhiEVector gConstLorentz(gComponent_Pt[n][i],gComponent_Eta[n][i],gComponent_Phi[n][i],gComponent_E[n][i]);
+	    P_Component_vs_JetEta_anticut->Fill(gEta[n],gConstLorentz.P());
+	    Pt_Component_vs_JetEta_anticut->Fill(gEta[n],gComponent_Pt[n][i]);
+
 	  }
-	  Q2_anticut->Fill(Q_square);    
 	}
       
       jet_cut_counter[0]+=1.; //Jets that only pass continue statements
@@ -292,7 +294,8 @@ int main(int argc, char *argv[])
   nconst_diff->Write();
   comp_eta->Write();
   comp_pid->Write();
-  
+  P_Component_vs_JetEta->Write();
+  Pt_Component_vs_JetEta->Write();  
   //reco_P_anticut->Scale(1./reco_P_anticut->GetEntries());
   //reco_E_anticut->Scale(1./reco_E_anticut->GetEntries());
   //reco_eta_anticut->Scale(1./reco_eta_anticut->GetEntries());
@@ -306,6 +309,8 @@ int main(int argc, char *argv[])
   nconst_diff_anticut->Write();
   comp_eta_anticut->Write();
   comp_pid_anticut->Write();
+  P_Component_vs_JetEta_anticut->Write();
+  Pt_Component_vs_JetEta_anticut->Write();  
   
   
   Tjve->GetXaxis()->SetTitle("E^{True}_{electron} [GeV]");
