@@ -146,6 +146,7 @@ int main(int argc, char *argv[])
   TH1F *nconst_diff = new TH1F("nconst_diff","Truth - Reco No. Constituents",20,0,20);
   TH1F *comp_eta = new TH1F("comp_eta","Jet Component #eta",40,-4,4);
   TH1F *comp_pid = new TH1F("comp_pid","Jet Component PID",1000,-500,500);
+  TH1F *comp_pt = new TH1F("comp_pt","Jet Component p_{T}",500,0,50);
   TH1F* Q2 = new TH1F("Q2","Q^{2}",100,0,500);
 
   TH2F *P_Component_vs_JetEta = new TH2F("comp_p_vs_jetEta","Component P vs. #eta^{Jet}_{Truth}",25,-5,5,40,0,20);
@@ -160,7 +161,8 @@ int main(int argc, char *argv[])
   TH1F *reco_P_anticut = new TH1F("reco_P(anti-cut)","Reconstructed Jet Momentum(anti-cut)",100,0,50);
   TH1F * RjoTj_anticut = new TH1F("PRecoJet_over_PTrueJet_anticut", "P_{Jet}^{True} - P_{Jet}^{True} / P^{True}_{Jet} (anti-cut) ",80,-0.4,0.4);
   TH1F *nconst_diff_anticut = new TH1F("nconst_diff_anticut","Truth - Reco No. Constituents",20,0,20);
-  TH1F *comp_eta_anticut = new TH1F("comp_eta_anticut","Jet Component #eta",40,-4,4);
+  TH1F *comp_eta_anticut = new TH1F("comp_eta_anticut","Jet Component #eta (Anti-Cut)",40,-4,4);
+  TH1F *comp_pt_anticut = new TH1F("comp_pt_anticut","Jet Component p_{T} (Anti-Cut)",500,0,50);
   TH1F *comp_pid_anticut = new TH1F("comp_pid_anticut","Jet Component PID (Anti-Cut)",1000,-500,500);
   TH1F* Q2_anticut = new TH1F("Q2_anticut","Q^{2} (anticut)",100,0,500);
   //TH1I * PID = new TH1I("PID_Histo", "PID",1000,-500,500);
@@ -170,6 +172,7 @@ int main(int argc, char *argv[])
   
   float max_DeltaR = 0.1; //reco-truth match
   int min_comp = 4;
+  float min_comp_pt = 0.01;
   float minE = 4.0;
   float max_dE_E = 0.03;
   float jet_cut_counter[3] = {0};
@@ -198,10 +201,16 @@ int main(int argc, char *argv[])
       if ( (abs(Eta[n]) > 1.) && (abs(Eta[n]) < 1.2) ) continue;
       //if ((abs(dE_E) < max_dE_E)) continue;
       bool cut_to_study; //Check continue statements
-      cut_to_study = (abs(dE_E) < max_dE_E);
+      //cut_to_study = (abs(dE_E) < max_dE_E);
       //cut_to_study = (NComponent[n] >= min_comp);
       //cut_to_study =( (NComponent[n] > min_comp) && (E[n] > minE) );
-      //cut_to_study = true;
+      cut_to_study = true;
+      for (int i = 0; i < NComponent[n]; i++){
+	if (gComponent_Charge[n][i] == 0) continue;
+	cut_to_study = (gComponent_Pt[n][i] >= min_comp_pt);
+	if (!cut_to_study) break;
+      }
+      
       if (cut_to_study)
 	{
 	  reco_E->Fill(E[n]);
@@ -216,6 +225,7 @@ int main(int argc, char *argv[])
 	    if (gComponent_Charge[n][i] == 0) continue;
 	    comp_eta->Fill(gComponent_Eta[n][i]);
 	    comp_pid->Fill(gComponent_PID[n][i]);
+	    comp_pt->Fill(gComponent_Pt[n][i]);
 	    ROOT::Math::PtEtaPhiEVector gConstLorentz(gComponent_Pt[n][i],gComponent_Eta[n][i],gComponent_Phi[n][i],gComponent_E[n][i]);
 	    P_Component_vs_JetEta->Fill(gEta[n],gConstLorentz.P());
 	    Pt_Component_vs_JetEta->Fill(gEta[n],gComponent_Pt[n][i]);
@@ -236,6 +246,7 @@ int main(int argc, char *argv[])
 	    if (gComponent_Charge[n][i] == 0) continue;
 	    comp_eta_anticut->Fill(gComponent_Eta[n][i]);
 	    comp_pid_anticut->Fill(gComponent_PID[n][i]);
+	    comp_pt_anticut->Fill(gComponent_Pt[n][i]);
 	    ROOT::Math::PtEtaPhiEVector gConstLorentz(gComponent_Pt[n][i],gComponent_Eta[n][i],gComponent_Phi[n][i],gComponent_E[n][i]);
 	    P_Component_vs_JetEta_anticut->Fill(gEta[n],gConstLorentz.P());
 	    Pt_Component_vs_JetEta_anticut->Fill(gEta[n],gComponent_Pt[n][i]);
@@ -294,6 +305,8 @@ int main(int argc, char *argv[])
   nconst_diff->Write();
   comp_eta->Write();
   comp_pid->Write();
+  comp_pt->Scale(1./comp_pt->GetEntries());
+  comp_pt->Write();
   P_Component_vs_JetEta->Write();
   Pt_Component_vs_JetEta->Write();  
   //reco_P_anticut->Scale(1./reco_P_anticut->GetEntries());
@@ -309,6 +322,8 @@ int main(int argc, char *argv[])
   nconst_diff_anticut->Write();
   comp_eta_anticut->Write();
   comp_pid_anticut->Write();
+  comp_pt_anticut->Scale(1./comp_pt_anticut->GetEntries());
+  comp_pt_anticut->Write();
   P_Component_vs_JetEta_anticut->Write();
   Pt_Component_vs_JetEta_anticut->Write();  
   
