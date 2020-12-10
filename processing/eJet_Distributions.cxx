@@ -90,13 +90,19 @@ int main(int argc, char *argv[])
   T -> SetBranchAddress("matched_charged_truthE",&gE);
   T -> SetBranchAddress("matched_charged_truthEta",&gEta);
   T -> SetBranchAddress("matched_charged_truthPhi",&gPhi);
-  T -> SetBranchAddress("matched_charged_truthPt",&Pt);
+  T -> SetBranchAddress("matched_charged_truthPt",&gPt);
+
+  // T -> SetBranchAddress("matched_truthE",&gE);
+  // T -> SetBranchAddress("matched_truthEta",&gEta);
+  // T -> SetBranchAddress("matched_truthPhi",&gPhi);
+  // T -> SetBranchAddress("matched_truthPt",&gPt);
+
   T -> SetBranchAddress("matched_charged_truthNComponent",&gNComponent);
   T -> SetBranchAddress("matched_Constituent_truthEta", gComponent_Eta.data());
   T -> SetBranchAddress("matched_Constituent_truthPID",gComponent_PID.data());
   T -> SetBranchAddress("matched_Constituent_truthPt",gComponent_Pt.data());
-    T -> SetBranchAddress("matched_Constituent_truthE",gComponent_E.data());
-    T -> SetBranchAddress("matched_Constituent_truthPhi",gComponent_Phi.data());
+  T -> SetBranchAddress("matched_Constituent_truthE",gComponent_E.data());
+  T -> SetBranchAddress("matched_Constituent_truthPhi",gComponent_Phi.data());
   T -> SetBranchAddress("matched_Constituent_truthCharge",gComponent_Charge.data());
 			
   T -> SetBranchAddress("electron_truthE",&electron_gE);
@@ -123,11 +129,11 @@ int main(int argc, char *argv[])
   //Ratio Histos
   TH1F * eoTj = new TH1F("ETrueJet_over_Eelectron", "E_{Reco}^{True}/E^{True}_{e} (|#eta^{Jet}|<0.7)",80,0,2);
   TH1F * eoRj = new TH1F("Eelectron_over_ERecoJet_over_Eelectron", "E_{Jet}^{Reco}/E^{True}_{e} (|#eta^{Jet}|<0.7)",80,0,2);
-  TH1F * RjoTj = new TH1F("PRecoJet_over_ETrueJet", "P_{Jet}^{Reco} - P^{True}_{Jet} / P^{True}_{Jet}",80,-0.4,0.4);
+  TH1F * RjoTj = new TH1F("PRecoJet_over_PTrueJet", "P_{Jet}^{True} - P^{Reco}_{Jet} / P^{True}_{Jet}",80,-0.4,0.4);
   TH1F * justE = new TH1F("Reco Energy", "Energy",100,0,100);
 
   //Difference Histos
-  TH1F * emTj = new TH1F("Eelectron_minus_ETrueJet", "E_{e}^{True} - E^{True}_{Jet} (|#eta^{Jet}|<0.7)",100,-20,30);
+  TH1F * emTj = new TH1F("Eelectron_minus_PTrueJet", "E_{e}^{True} - E^{True}_{Jet} (|#eta^{Jet}|<0.7)",100,-20,30);
   TH1F * emRj = new TH1F("Eelectron_minus_ERecoJet", "E_{e}^{True} - E^{Reco}_{Jet} (|#eta^{Jet}|<0.7)",100,-20,30);
   //Detector Coordinate Histos
   TH1F * dPhiTj = new TH1F("dPhi_e_TrueJet", "|#Delta#varphi| (#varphi_{e} - #varphi^{True}_{Jet}) ", 32,0,M_PI);
@@ -152,6 +158,16 @@ int main(int argc, char *argv[])
   TH2F *P_Component_vs_JetEta = new TH2F("comp_p_vs_jetEta","Component P vs. #eta^{Jet}_{Truth}",25,-5,5,40,0,20);
   TH2F *Pt_Component_vs_JetEta = new TH2F("comp_pT_vs_jetEta","Component p_{T} vs. #eta^{Jet}_{Truth}",25,-5,5,40,0,20);
   
+  TH2F *n_neutrals_vs_dP_P = new TH2F("n_neutrals_vs_dP_P", "No. Neutral Components in Original Truth Jet VS. dP/P",80,-0.4,0.4,9,-1,8);
+  TH2F *n_missed_vs_dP_P = new TH2F("n_missed_vs_dP_P", "No. Missed Jet Components VS. dP/P",80,-0.4,0.4,16,-8,8);  
+  TH1F *n_neutrals = new TH1F("n_neutrals", "No. Original Neutral Components in Truth Jet",10,0,10);
+  TH1I *n_charged = new TH1I("n_charged", "No. Original Charged Components in Truth Jet",10,0,10);
+  TH1I *n_missed = new TH1I("n_missed","No. Missed Jet Components",10,-5,5);
+  TH1I *n_constituents = new TH1I("n_constituents","No. Jet Components",10,0,10);
+  TH1I *n_reco_constituents = new TH1I("reco_n_constituents","No. Jet Components",10,0,10);
+  TH1I *n_missed_minuseutrals = new TH1I("n_missed_minusneutrals","No. Missed Jet Components (Truth - Reco - Neutral)",10,-5,5);
+  TH1I *simple_ndiff = new TH1I("simple_ndiff", "gNComponent - NComponent", 10,-5,5);
+  
   gStyle->SetMarkerColor(2);
   gStyle->SetLineColor(2);
   TH1F *reco_phi_anticut = new TH1F("reco_phi(anti-cut)","Reconstructed Jet #varphi(anti-cut)",16,-M_PI,M_PI); 
@@ -159,7 +175,7 @@ int main(int argc, char *argv[])
   TH1F *reco_E_anticut = new TH1F("reco_E(anti-cut)","Reconstructed Jet Energy(anti-cut)",100,0,50);
   TH1F *reco_nconst_anticut = new TH1F("reco_nconst(anti-cut)","Reconstructed Jet N Component(anti-cut)",20,0,20);
   TH1F *reco_P_anticut = new TH1F("reco_P(anti-cut)","Reconstructed Jet Momentum(anti-cut)",100,0,50);
-  TH1F * RjoTj_anticut = new TH1F("PRecoJet_over_PTrueJet_anticut", "P_{Jet}^{True} - P_{Jet}^{True} / P^{True}_{Jet} (anti-cut) ",80,-0.4,0.4);
+  TH1F * RjoTj_anticut = new TH1F("PRecoJet_over_PTrueJet_anticut", "P_{Jet}^{True} - P_{Jet}^{Reco} / P^{True}_{Jet} (anti-cut) ",80,-0.4,0.4);
   TH1F *nconst_diff_anticut = new TH1F("nconst_diff_anticut","Truth - Reco No. Constituents",20,0,20);
   TH1F *comp_eta_anticut = new TH1F("comp_eta_anticut","Jet Component #eta (Anti-Cut)",40,-4,4);
   TH1F *comp_pt_anticut = new TH1F("comp_pt_anticut","Jet Component p_{T} (Anti-Cut)",500,0,50);
@@ -169,14 +185,17 @@ int main(int argc, char *argv[])
 
   TH2F *P_Component_vs_JetEta_anticut = new TH2F("comp_p_vs_jetEta_anticut","Component P vs. #eta^{Jet}_{Truth} (anti-cut)",25,-5,5,40,0,20);
   TH2F *Pt_Component_vs_JetEta_anticut = new TH2F("comp_pT_vs_jetEta_anticut","Component p_{T} vs. #eta^{Jet}_{Truth} (anticut)",25,-5,5,40,0,20);
-  
+
+  //--------------------Cut Parameters--------------------//
   float max_DeltaR = 0.1; //reco-truth match
   int min_comp = 4;
-  float min_comp_pt = 0.01;
+  float min_comp_pt = 0.06; // 7MeV for 1.4 T field, 14MeV for 3 T field. 20MeV safety.
   float minE = 4.0;
   float max_dE_E = 0.03;
   float jet_cut_counter[3] = {0};
+  float max_miss_const = 1;
 
+  //--------------------Event & Jet Loops--------------------//
   for (Long64_t ev = 0; ev < nEntries; ev++){
     T->GetEntry(ev);
     if (ev%10000==0) fprintf(stderr,"%d: Entry %lli out of %d\n",__LINE__,ev,nEntries);
@@ -184,41 +203,77 @@ int main(int argc, char *argv[])
 
     for (int n = 0; n < njets; ++n) {
       if (std::isnan(gE[n])) continue; //reco jet must have a truth match
-      
+      simple_ndiff->Fill(gNComponent[n] - NComponent[n]);
       //cuts
       ROOT::Math::PtEtaPhiEVector Lorentz(Pt[n],Eta[n],Phi[n],E[n]);
       ROOT::Math::PtEtaPhiEVector gLorentz(gPt[n],gEta[n],gPhi[n],gE[n]);
       float dR = ROOT::Math::VectorUtil::DeltaR(Lorentz,gLorentz);
-      float dE_E = (E[n] - gE[n]) / gE[n];
+      float dP_P = (gLorentz.P() - Lorentz.P()) / gLorentz.P();
+      //cout<<"gP = "<<gLorentz.P()<<"gPt = "<<gPt[n]<<"gLorentz.Pt() = "<<gLorentz.Pt()<<endl;
 
       ROOT::Math::PtEtaPhiEVector e_vector (electron_gPt,electron_gEta,electron_gPhi,electron_gE);
       Float_t Q_square = calc_Q_square(20,e_vector); //electron Beam of 20 GeV/c
       
-      //CUTS:
-      if (dR > max_DeltaR) continue;
+      bool cut_to_study = true; //Check for conflicts with continue statements
+
+      //--------------------Reco CUTS--------------------//
+      // if (dR > max_DeltaR) continue;
       if (NComponent[n] < min_comp) continue;
       if (E[n] < minE) continue;
-      if ( (abs(Eta[n]) > 1.) && (abs(Eta[n]) < 1.2) ) continue;
-      //if ((abs(dE_E) < max_dE_E)) continue;
-      bool cut_to_study; //Check continue statements
-      //cut_to_study = (abs(dE_E) < max_dE_E);
+
+      //--------------------Truth Cuts--------------------//
+      //if ((gE[n] < 15) || (gE[n] > 20)) continue;
+      
+      // bool gconst_eta = true;
+      // for (int i = 0; i < gNComponent[n]; i++){
+      //   if (abs(gComponent_Eta[n][i]) > 3.) gconst_eta=false;
+      // 	if (!gconst_eta) break;
+      // }			  
+      // //if !(gconst_eta) continue
+
+      //--------------------Constituent Cuts & Counting-----------------------//
+      bool eta_const_cut = true; //avoid crack where barrel meets disks
+      bool pt_const_cut = true;//cut away helixes
+      for (int i = 0; i < gNComponent[n]; i++){
+	eta_const_cut = !((abs(gComponent_Eta[n][i]) > 1.0) &&
+			  (abs(gComponent_Eta[n][i]) < 1.2) &&
+			  (abs(gComponent_Eta[n][i]) < 3.5));
+	pt_const_cut = (gComponent_Pt[n][i] > min_comp_pt);
+      	if (!eta_const_cut || !pt_const_cut) break;
+      }
+      if (!eta_const_cut || !pt_const_cut) continue;
+      
+      int n_neutral = 0;
+      int n_ch = 0;
+      for (int i = 0; i < gNComponent[n]; i++){
+      	if (gComponent_Charge[n][i] == 0) n_neutral++;
+	else n_ch++;
+      }
+      n_neutrals_vs_dP_P->Fill(dP_P,n_neutral);
+      n_missed_vs_dP_P->Fill(dP_P,(gNComponent[n] - NComponent[n]));
+      n_missed->Fill(gNComponent[n] - NComponent[n]);
+      n_missed_minuseutrals->Fill(gNComponent[n] - NComponent[n] - n_neutral);
+      n_neutrals->Fill(n_neutral);
+      n_charged->Fill(n_ch);
+      n_constituents->Fill(gNComponent[n]);
+      n_reco_constituents->Fill(NComponent[n]);
+
+      //--------------------Cut To Study--------------------//
+      //cut_to_study = (abs(dP_P) < max_dP_P);
       //cut_to_study = (NComponent[n] >= min_comp);
       //cut_to_study =( (NComponent[n] > min_comp) && (E[n] > minE) );
-      cut_to_study = true;
-      for (int i = 0; i < NComponent[n]; i++){
-	if (gComponent_Charge[n][i] == 0) continue;
-	cut_to_study = (gComponent_Pt[n][i] >= min_comp_pt);
-	if (!cut_to_study) break;
-      }
-      
+      //cut_to_study = ((gNComponent[n] - NComponent[n] - n_neutral) < max_miss_const);
+      cut_to_study = ((gNComponent[n] - NComponent[n]) < max_miss_const);
+            
       if (cut_to_study)
 	{
 	  reco_E->Fill(E[n]);
 	  reco_P->Fill(Lorentz.P());
 	  reco_eta->Fill(Eta[n]);
+
 	  reco_phi->Fill(Phi[n]);
 	  reco_nconst->Fill(NComponent[n]);
-	  RjoTj->Fill(dE_E);
+	  RjoTj->Fill(dP_P);
 	  nconst_diff->Fill(gNComponent[n] - NComponent[n]);
 	  Q2->Fill(Q_square);
 	  for (int i = 0; i < NComponent[n]; i++){
@@ -232,14 +287,15 @@ int main(int argc, char *argv[])
 	  }
 	  jet_cut_counter[1]+=1.; //increment
 	}
-      else if (NComponent[n] >= 3)
+
+      else
 	{
 	  reco_E_anticut->Fill(E[n]);
 	  reco_P_anticut->Fill(Lorentz.P());
 	  reco_eta_anticut->Fill(Eta[n]);
 	  reco_phi_anticut->Fill(Phi[n]);
 	  reco_nconst_anticut->Fill(NComponent[n]);
-	  RjoTj_anticut->Fill(dE_E);
+	  RjoTj_anticut->Fill(dP_P);
 	  nconst_diff_anticut->Fill(gNComponent[n] - NComponent[n]);
 	  Q2_anticut->Fill(Q_square);    
 	  for (int i = 0; i < NComponent[n]; i++){
@@ -308,7 +364,16 @@ int main(int argc, char *argv[])
   comp_pt->Scale(1./comp_pt->GetEntries());
   comp_pt->Write();
   P_Component_vs_JetEta->Write();
-  Pt_Component_vs_JetEta->Write();  
+  Pt_Component_vs_JetEta->Write();
+  n_neutrals_vs_dP_P->Write();
+  n_missed_vs_dP_P->Write();
+  n_neutrals->Write();
+  n_charged->Write();
+  n_missed->Write();
+  n_missed_minuseutrals->Write();
+  simple_ndiff->Write();
+  n_constituents->Write();
+  n_reco_constituents->Write();
   //reco_P_anticut->Scale(1./reco_P_anticut->GetEntries());
   //reco_E_anticut->Scale(1./reco_E_anticut->GetEntries());
   //reco_eta_anticut->Scale(1./reco_eta_anticut->GetEntries());
