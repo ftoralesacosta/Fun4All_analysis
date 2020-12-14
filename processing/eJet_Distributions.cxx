@@ -87,17 +87,18 @@ int main(int argc, char *argv[])
   T -> SetBranchAddress("pt",&Pt);
   T -> SetBranchAddress("nComponent",&NComponent);
   
-  T -> SetBranchAddress("matched_charged_truthE",&gE);
-  T -> SetBranchAddress("matched_charged_truthEta",&gEta);
-  T -> SetBranchAddress("matched_charged_truthPhi",&gPhi);
-  T -> SetBranchAddress("matched_charged_truthPt",&gPt);
+  // T -> SetBranchAddress("matched_charged_truthE",&gE);
+  // T -> SetBranchAddress("matched_charged_truthEta",&gEta);
+  // T -> SetBranchAddress("matched_charged_truthPhi",&gPhi);
+  // T -> SetBranchAddress("matched_charged_truthPt",&gPt);
+  //T -> SetBranchAddress("matched_charged_truthNComponent",&gNComponent);
+  
+  T -> SetBranchAddress("matched_truthE",&gE);
+  T -> SetBranchAddress("matched_truthEta",&gEta);
+  T -> SetBranchAddress("matched_truthPhi",&gPhi);
+  T -> SetBranchAddress("matched_truthPt",&gPt);
+  T -> SetBranchAddress("matched_truthNComponent",&gNComponent);
 
-  // T -> SetBranchAddress("matched_truthE",&gE);
-  // T -> SetBranchAddress("matched_truthEta",&gEta);
-  // T -> SetBranchAddress("matched_truthPhi",&gPhi);
-  // T -> SetBranchAddress("matched_truthPt",&gPt);
-
-  T -> SetBranchAddress("matched_charged_truthNComponent",&gNComponent);
   T -> SetBranchAddress("matched_Constituent_truthEta", gComponent_Eta.data());
   T -> SetBranchAddress("matched_Constituent_truthPID",gComponent_PID.data());
   T -> SetBranchAddress("matched_Constituent_truthPt",gComponent_Pt.data());
@@ -140,7 +141,7 @@ int main(int argc, char *argv[])
   TH1F * dPhiRj = new TH1F("dPhi_e_RecoJet", "|#Delta#varphi| #varphi_{e} - #varphi(Jet^{Reco}_{Jet}) ", 32,0,M_PI);
   TH1F * dEtaTj = new TH1F("dEta_e_TrueJet", "|#Delta#eta| (#eta_{e} - #eta^{True}_{Jet})", 80,-10,10);
   TH1F * dEtaRj = new TH1F("dEta_e_RecoJet", "|#Delta#eta| (#eta_{e} - #eta^{Reco}_{Jet})", 80,-10,10);
-
+  
   //Simple Distributions
   gStyle->SetMarkerColor(4);
   gStyle->SetLineColor(4);
@@ -167,7 +168,25 @@ int main(int argc, char *argv[])
   TH1I *n_reco_constituents = new TH1I("reco_n_constituents","No. Jet Components",10,0,10);
   TH1I *n_missed_minuseutrals = new TH1I("n_missed_minusneutrals","No. Missed Jet Components (Truth - Reco - Neutral)",10,-5,5);
   TH1I *simple_ndiff = new TH1I("simple_ndiff", "gNComponent - NComponent", 10,-5,5);
-  
+
+  int nEta_bins = 8;
+  int root_colors[nEta_bins] = {6,52,60,70,80,90,94,100};
+  int Eta_Bins[nEta_bins] = {-4,-3,-2,-1,0,1,2,3,4};
+  TH1F ** momentum_in_eta_bins = new TH1F*[nEta_bins];
+  for (int ieta; ieta < nEta_bins; ++ieta)
+    {
+      momentum_in_eta_bins[ieta] = new TH1F(Form("momentum_etaBin_%i",ieta),
+					    Form("Jet p_{T} Distribution, %i <#eta_{jet} < %i",
+						 Eta_Bins[ieta],Eta_Bins[ieta+1]),50,0,25);
+      momentum_in_eta_bins[ieta]->SetMarkerColor(4);
+      momentum_in_eta_bins[ieta]->SetLineColor(4);
+    }
+    
+  TH1F *truth_phi = new TH1F("truth_phi","Truth Jet #varphi",16,-M_PI,M_PI); 
+  TH1F *truth_eta = new TH1F("truth_eta","Truth Jet #eta",50,-5,5);
+  TH1F *truth_E = new TH1F("truth_E","Truth Jet Energy",100,0,50);
+  TH1F *truth_P = new TH1F("truth_P","Truth Jet Momentum",100,0,50);
+
   gStyle->SetMarkerColor(2);
   gStyle->SetLineColor(2);
   TH1F *reco_phi_anticut = new TH1F("reco_phi(anti-cut)","Reconstructed Jet #varphi(anti-cut)",16,-M_PI,M_PI); 
@@ -175,7 +194,7 @@ int main(int argc, char *argv[])
   TH1F *reco_E_anticut = new TH1F("reco_E(anti-cut)","Reconstructed Jet Energy(anti-cut)",100,0,50);
   TH1F *reco_nconst_anticut = new TH1F("reco_nconst(anti-cut)","Reconstructed Jet N Component(anti-cut)",20,0,20);
   TH1F *reco_P_anticut = new TH1F("reco_P(anti-cut)","Reconstructed Jet Momentum(anti-cut)",100,0,50);
-  TH1F * RjoTj_anticut = new TH1F("PRecoJet_over_PTrueJet_anticut", "P_{Jet}^{True} - P_{Jet}^{Reco} / P^{True}_{Jet} (anti-cut) ",80,-0.4,0.4);
+  TH1F *RjoTj_anticut = new TH1F("PRecoJet_over_PTrueJet_anticut", "P_{Jet}^{True} - P_{Jet}^{Reco} / P^{True}_{Jet} (anti-cut) ",80,-0.4,0.4);
   TH1F *nconst_diff_anticut = new TH1F("nconst_diff_anticut","Truth - Reco No. Constituents",20,0,20);
   TH1F *comp_eta_anticut = new TH1F("comp_eta_anticut","Jet Component #eta (Anti-Cut)",40,-4,4);
   TH1F *comp_pt_anticut = new TH1F("comp_pt_anticut","Jet Component p_{T} (Anti-Cut)",500,0,50);
@@ -185,15 +204,32 @@ int main(int argc, char *argv[])
 
   TH2F *P_Component_vs_JetEta_anticut = new TH2F("comp_p_vs_jetEta_anticut","Component P vs. #eta^{Jet}_{Truth} (anti-cut)",25,-5,5,40,0,20);
   TH2F *Pt_Component_vs_JetEta_anticut = new TH2F("comp_pT_vs_jetEta_anticut","Component p_{T} vs. #eta^{Jet}_{Truth} (anticut)",25,-5,5,40,0,20);
+  TH1F ** anticut_momentum_in_eta_bins = new TH1F*[nEta_bins];
+  for (int ieta; ieta < nEta_bins; ++ieta)
+    {
+      anticut_momentum_in_eta_bins[ieta] = new TH1F(Form("anticut_momentum_etaBin_%i",ieta),
+						    Form("Jet p_{T} Distribution (anticut), %i <#eta_{jet} < %i",
+							 Eta_Bins[ieta],Eta_Bins[ieta+1]),50,0,25);
+      anticut_momentum_in_eta_bins[ieta]->SetMarkerColor(2);
+      anticut_momentum_in_eta_bins[ieta]->SetLineColor(2);
+    }
+
+  TH1F *truth_phi_anticut = new TH1F("anticut_truth_phi","Truth Jet #varphi (anticut)",16,-M_PI,M_PI); 
+  TH1F *truth_eta_anticut = new TH1F("anticut_truth_eta","Truth Jet #eta (anticut)",50,-5,5);
+  TH1F *truth_E_anticut = new TH1F("anticut_truth_E","Truth Jet Energy (anticut)",100,0,50);
+  TH1F *truth_P_anticut = new TH1F("anticut_truth_P","Truth Jet Momentum (anticut)",100,0,50);
+
 
   //--------------------Cut Parameters--------------------//
   float max_DeltaR = 0.1; //reco-truth match
   int min_comp = 4;
   float min_comp_pt = 0.06; // 7MeV for 1.4 T field, 14MeV for 3 T field. 20MeV safety.
+  //float min_comp_pt = 1.0; //1GeV Cut
   float minE = 4.0;
   float max_dE_E = 0.03;
   float jet_cut_counter[3] = {0};
   float max_miss_const = 1;
+  int n_neutral_max = 1;
 
   //--------------------Event & Jet Loops--------------------//
   for (Long64_t ev = 0; ev < nEntries; ev++){
@@ -204,17 +240,10 @@ int main(int argc, char *argv[])
     for (int n = 0; n < njets; ++n) {
       if (std::isnan(gE[n])) continue; //reco jet must have a truth match
       simple_ndiff->Fill(gNComponent[n] - NComponent[n]);
-      //cuts
+
       ROOT::Math::PtEtaPhiEVector Lorentz(Pt[n],Eta[n],Phi[n],E[n]);
       ROOT::Math::PtEtaPhiEVector gLorentz(gPt[n],gEta[n],gPhi[n],gE[n]);
-      float dR = ROOT::Math::VectorUtil::DeltaR(Lorentz,gLorentz);
-      float dP_P = (gLorentz.P() - Lorentz.P()) / gLorentz.P();
-      //cout<<"gP = "<<gLorentz.P()<<"gPt = "<<gPt[n]<<"gLorentz.Pt() = "<<gLorentz.Pt()<<endl;
-
       ROOT::Math::PtEtaPhiEVector e_vector (electron_gPt,electron_gEta,electron_gPhi,electron_gE);
-      Float_t Q_square = calc_Q_square(20,e_vector); //electron Beam of 20 GeV/c
-      
-      bool cut_to_study = true; //Check for conflicts with continue statements
 
       //--------------------Reco CUTS--------------------//
       // if (dR > max_DeltaR) continue;
@@ -234,21 +263,35 @@ int main(int argc, char *argv[])
       //--------------------Constituent Cuts & Counting-----------------------//
       bool eta_const_cut = true; //avoid crack where barrel meets disks
       bool pt_const_cut = true;//cut away helixes
+      int n_neutral = 0;
+      int n_ch = 0;
+      bool maxed_neutrals = true;
+
       for (int i = 0; i < gNComponent[n]; i++){
 	eta_const_cut = !((abs(gComponent_Eta[n][i]) > 1.0) &&
 			  (abs(gComponent_Eta[n][i]) < 1.2) &&
 			  (abs(gComponent_Eta[n][i]) < 3.5));
 	pt_const_cut = (gComponent_Pt[n][i] > min_comp_pt);
-      	if (!eta_const_cut || !pt_const_cut) break;
+      	if (!eta_const_cut || !pt_const_cut) break; //skip jets that fail (general cut)
+	if (gComponent_Charge[n][i] == 0)
+	  n_neutral++;
+	else
+	  n_ch++;
+	
+	ROOT::Math::PtEtaPhiEVector gConstLorentz(gComponent_Pt[n][i],
+						  gComponent_Eta[n][i],
+						  gComponent_Phi[n][i],
+						  gComponent_E[n][i]);
+	if (gComponent_Charge[n][i] == 0)
+	  gLorentz -= gConstLorentz;//done before jet histograms are filled
       }
       if (!eta_const_cut || !pt_const_cut) continue;
+      maxed_neutrals =  n_neutral <  n_neutral_max;
+
+      float dR = ROOT::Math::VectorUtil::DeltaR(Lorentz,gLorentz);
+      float dP_P = (gLorentz.P() - Lorentz.P()) / gLorentz.P();
+      Float_t Q_square = calc_Q_square(20,e_vector); //electron Beam of 20 GeV/c
       
-      int n_neutral = 0;
-      int n_ch = 0;
-      for (int i = 0; i < gNComponent[n]; i++){
-      	if (gComponent_Charge[n][i] == 0) n_neutral++;
-	else n_ch++;
-      }
       n_neutrals_vs_dP_P->Fill(dP_P,n_neutral);
       n_missed_vs_dP_P->Fill(dP_P,(gNComponent[n] - NComponent[n]));
       n_missed->Fill(gNComponent[n] - NComponent[n]);
@@ -258,21 +301,29 @@ int main(int argc, char *argv[])
       n_constituents->Fill(gNComponent[n]);
       n_reco_constituents->Fill(NComponent[n]);
 
+      
       //--------------------Cut To Study--------------------//
+      bool cut_to_study = true; //Check for conflicts with continue statements
       //cut_to_study = (abs(dP_P) < max_dP_P);
       //cut_to_study = (NComponent[n] >= min_comp);
       //cut_to_study =( (NComponent[n] > min_comp) && (E[n] > minE) );
       //cut_to_study = ((gNComponent[n] - NComponent[n] - n_neutral) < max_miss_const);
-      cut_to_study = ((gNComponent[n] - NComponent[n]) < max_miss_const);
-            
+      //cut_to_study = ((gNComponent[n] - NComponent[n]) < max_miss_const);
+      //cut_to_study = pt_const_cut;
+      //cut_to_study = maxed_neutrals;
+
       if (cut_to_study)
 	{
-	  reco_E->Fill(E[n]);
+	  reco_E->Fill(Lorentz.E());
 	  reco_P->Fill(Lorentz.P());
-	  reco_eta->Fill(Eta[n]);
-
-	  reco_phi->Fill(Phi[n]);
+	  reco_eta->Fill(Lorentz.Eta());
+	  reco_phi->Fill(Lorentz.Phi());
 	  reco_nconst->Fill(NComponent[n]);
+	  truth_E->Fill(gLorentz.E());
+	  truth_P->Fill(gLorentz.P());
+	  truth_eta->Fill(gLorentz.Eta());
+	  truth_phi->Fill(gLorentz.Phi());
+
 	  RjoTj->Fill(dP_P);
 	  nconst_diff->Fill(gNComponent[n] - NComponent[n]);
 	  Q2->Fill(Q_square);
@@ -286,6 +337,9 @@ int main(int argc, char *argv[])
 	    Pt_Component_vs_JetEta->Fill(gEta[n],gComponent_Pt[n][i]);
 	  }
 	  jet_cut_counter[1]+=1.; //increment
+	  for (int ieta = 0; ieta < nEta_bins; ieta++)
+	    if ((Eta[n] >= Eta_Bins[ieta]) && (Eta[n] < Eta_Bins[ieta+1]))
+	      momentum_in_eta_bins[ieta]->Fill(Pt[n]);
 	}
 
       else
@@ -294,6 +348,12 @@ int main(int argc, char *argv[])
 	  reco_P_anticut->Fill(Lorentz.P());
 	  reco_eta_anticut->Fill(Eta[n]);
 	  reco_phi_anticut->Fill(Phi[n]);
+
+	  truth_E_anticut->Fill(gE[n]);
+	  truth_P_anticut->Fill(gLorentz.P());
+	  truth_eta_anticut->Fill(gEta[n]);
+	  truth_phi_anticut->Fill(gPhi[n]);
+	  
 	  reco_nconst_anticut->Fill(NComponent[n]);
 	  RjoTj_anticut->Fill(dP_P);
 	  nconst_diff_anticut->Fill(gNComponent[n] - NComponent[n]);
@@ -306,8 +366,11 @@ int main(int argc, char *argv[])
 	    ROOT::Math::PtEtaPhiEVector gConstLorentz(gComponent_Pt[n][i],gComponent_Eta[n][i],gComponent_Phi[n][i],gComponent_E[n][i]);
 	    P_Component_vs_JetEta_anticut->Fill(gEta[n],gConstLorentz.P());
 	    Pt_Component_vs_JetEta_anticut->Fill(gEta[n],gComponent_Pt[n][i]);
-
 	  }
+	  for (int ieta = 0; ieta < nEta_bins; ieta++)
+	    if ((Eta[n] >= Eta_Bins[ieta]) && (Eta[n] < Eta_Bins[ieta+1]))
+	      anticut_momentum_in_eta_bins[ieta]->Fill(Pt[n]);
+
 	}
       
       jet_cut_counter[0]+=1.; //Jets that only pass continue statements
@@ -355,6 +418,12 @@ int main(int argc, char *argv[])
   reco_P->Write();
   reco_eta->Write();
   reco_phi->Write();
+
+  truth_E->Write();
+  truth_P->Write();
+  truth_eta->Write();
+  truth_phi->Write();
+
   reco_nconst->Write();
   RjoTj->GetXaxis()->SetTitle("dP/P");
   RjoTj->Write();
@@ -382,6 +451,12 @@ int main(int argc, char *argv[])
   reco_P_anticut->Write();
   reco_eta_anticut->Write();
   reco_phi_anticut->Write();
+
+  truth_E_anticut->Write();
+  truth_P_anticut->Write();
+  truth_eta_anticut->Write();
+  truth_phi_anticut->Write();
+  
   RjoTj_anticut->Write();
   reco_nconst_anticut->Write();
   nconst_diff_anticut->Write();
@@ -425,7 +500,11 @@ int main(int argc, char *argv[])
   // H_dR->Write();
   // H_NExtra_Matches->Write();
 
+  for (int ieta = 0; ieta < nEta_bins; ieta++) {
+    momentum_in_eta_bins[ieta]->Write();
+    anticut_momentum_in_eta_bins[ieta]->Write();
+  }  
   fout->Close();
-  
+
 }
 
