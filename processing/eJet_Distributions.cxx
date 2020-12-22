@@ -194,9 +194,10 @@ int main(int argc, char *argv[])
   TH1F *comp_eta_anticut = new TH1F("comp_eta_anticut","Jet Component #eta (Anti-Cut)",40,-4,4);
   TH1F *comp_pt_anticut = new TH1F("comp_pt_anticut","Jet Component p_{T} (Anti-Cut)",500,0,50);
   TH1F *comp_pid_anticut = new TH1F("comp_pid_anticut","Jet Component PID (Anti-Cut)",1000,-500,500);
-  TH1F* Q2_anticut = new TH1F("Q2_anticut","Q^{2} (anticut)",100,0,500);
+  TH1F *Q2_anticut = new TH1F("Q2_anticut","Q^{2} (anticut)",100,0,500);
   //TH1I * PID = new TH1I("PID_Histo", "PID",1000,-500,500);
-
+  TH2F *momentum_response = new TH2F("momentum_response","Charged Jet Momentum Response",100,0,50,100,0,50);
+  
   TH2F *P_Component_vs_JetEta_anticut = new TH2F("comp_p_vs_jetEta_anticut","Component P vs. #eta^{Jet}_{Truth} (anti-cut)",25,-5,5,40,0,20);
   TH2F *Pt_Component_vs_JetEta_anticut = new TH2F("comp_pT_vs_jetEta_anticut","Component p_{T} vs. #eta^{Jet}_{Truth} (anticut)",25,-5,5,40,0,20);
   TH1F ** anticut_momentum_in_eta_bins = new TH1F*[nEta_bins];
@@ -258,7 +259,7 @@ int main(int argc, char *argv[])
       // //if !(gconst_eta) continue
 
       //--------------------Constituent Cuts & Counting-----------------------//
-      bool eta_const_cut = false; //avoid crack where barrel meets disks
+      bool eta_const_cut = false; //cut based on radiation length table, where barrel meets endcap
       bool pt_const_cut = false;//cut away helixes
       int n_neutral = 0;
       int n_ch = 0;
@@ -266,7 +267,8 @@ int main(int argc, char *argv[])
 
       for (int i = 0; i < gNComponent[n]; i++){
 
-	eta_const_cut = (  ( (abs(gComponent_Eta[n][i]) > 1.0) && (abs(gComponent_Eta[n][i]) < 1.2) )
+
+	eta_const_cut = (  ( (abs(gComponent_Eta[n][i]) > 1.06) && (abs(gComponent_Eta[n][i]) < 1.13) )
 			    || (abs(gComponent_Eta[n][i]) > 3.5)  );
 	pt_const_cut = (gComponent_Pt[n][i] < min_comp_pt);
       	if (eta_const_cut || pt_const_cut) break; //skip jets that fail (general cut)
@@ -281,7 +283,6 @@ int main(int argc, char *argv[])
 	  gLorentz -= gConstLorentz;//done before jet histograms are filled
       }
       if (eta_const_cut || pt_const_cut) continue;//see break statement above
-      cout<<"Line: "<<__LINE__<<endl;
       maxed_neutrals =  n_neutral <  n_neutral_max;
 
       float dR = ROOT::Math::VectorUtil::DeltaR(Lorentz,gLorentz);
@@ -295,21 +296,20 @@ int main(int argc, char *argv[])
       n_charged->Fill(n_ch);
       n_constituents->Fill(gNComponent[n]);
       n_reco_constituents->Fill(NComponent[n]);
-
+      momentum_response->Fill(Lorentz.P(),gLorentz.P());
       
       //--------------------Cut To Study--------------------//
       bool cut_to_study = true; //Check for conflicts with continue statements
       //cut_to_study = (abs(dP_P) < max_dP_P);
       //cut_to_study = (NComponent[n] >= min_comp);
       //cut_to_study =( (NComponent[n] > min_comp) && (E[n] > minE) );
-      cut_to_study = ((gNComponent[n] - NComponent[n] - n_neutral) < max_miss_const);
+      //cut_to_study = ((gNComponent[n] - NComponent[n] - n_neutral) < max_miss_const);
       //cut_to_study = ((gNComponent[n] - NComponent[n]) < max_miss_const);
       //cut_to_study = pt_const_cut;
       //cut_to_study = maxed_neutrals;
 
       if (cut_to_study)
 	{
-	  cout<<"Line: "<<__LINE__<<endl;
 	  reco_E->Fill(Lorentz.E());
 	  reco_P->Fill(Lorentz.P());
 	  reco_eta->Fill(Lorentz.Eta());
@@ -403,6 +403,7 @@ int main(int argc, char *argv[])
   //Write to new root file
   TFile* fout = new TFile("Histograms_Jet_Callibration.root","RECREATE");
   TJet_counter.Write("TJet_Counter");
+  momentum_response->Write();
   justE->Write();
   //PID->Write();
 
