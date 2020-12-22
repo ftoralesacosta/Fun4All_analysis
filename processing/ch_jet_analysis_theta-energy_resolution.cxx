@@ -39,19 +39,21 @@ int main(int argc, char ** argv) {
 	TApplication *myapp = new TApplication("myapp",0,0);
 #endif
 
-	if(argc!=6){
+	if(argc < 5){
 		cout << "Run this code as:\n\033[1;32m./analysis_momentum_resolution A B C D filename.root\033[0m\n";
 		cout << "where:\nA = 1 -> Widths from table will be used\n  = 2 -> Widths from table \033[1;31mwon't\033[0m be used\n";
 		cout << "B = 1 -> Table will be updated\n  = 2 -> Table \033[1;31mwon't\033[0m be updated\n";
 		cout << "C = 1 -> Run code and quit\n  = 2 -> Run code and show plots\n";
-		cout << "D = 1 -> Apply DeltaR Selection\n  = 2 -> Don't apply DeltaR Selection\n";
+		cout << "D = 1 -> Apply N_Missing < 1\n  = 2 -> Don't apply N_Missing Selection\n";
 		exit(0);
 	}
 
 	bool use_widths = true;
 	bool update_tab = false;
 	bool keep_plots = false;
-	bool DeltaR_Cut = true;
+	bool N_Missing_Cut = true;
+	int N_Missing_Max = 1;
+	bool plot_mrad = true;
 	
 	if (!fs::is_directory("../data"  ) || !fs::exists("../data"  )) fs::create_directory("../data"  ); // Create directory if it does not exist
 	if (!fs::is_directory("tables"   ) || !fs::exists("tables"   )) fs::create_directory("tables"   );
@@ -73,14 +75,14 @@ int main(int argc, char ** argv) {
 	else if(atoi(argv[3])==2){keep_plots = true ;	cout << "Will run and show the plots\n" ; }
 	else{cout << "Something wrong with your election of input parameter 'C'. Bailing out!\n"; exit(0);}
 
-	if     (atoi(argv[4])==1){DeltaR_Cut = true ;   cout << "Table will be updated\n" ;}
-	else if(atoi(argv[4])==2){DeltaR_Cut = false;   cout << "Table won't be updated\n";}
+	if     (atoi(argv[4])==1){N_Missing_Cut = true ;   cout << "Table will be updated\n" ;}
+	else if(atoi(argv[4])==2){N_Missing_Cut = false;   cout << "Table won't be updated\n";}
 	else{cout << "Something wrong with your election of input parameter 'B'. Bailing out!\n"; exit(0);}
 
 
 	// -------------------------
 	// Binning
-	float eta_bin[] = {-2.0,-1.0,0.0,1.0,2.0,4.0};
+	float eta_bin[] = {-3.0,-1.0,0.0,1.0,3.0};
 	float mom_bin[] = {4.,6.,8.,10.,12.,20.};
 
 	const int size_eta_bin = sizeof(eta_bin)/sizeof(*eta_bin);
@@ -105,20 +107,37 @@ int main(int argc, char ** argv) {
 	// -------------------------------------------------------------
 	// Loading all the needed info from the root file
 	TFile * F = new TFile(infile);
+	TTree *T = dynamic_cast<TTree *>(F->Get("T"));
+	if (T == NULL) { std::cout << " Tree Fail " << std::endl; exit(EXIT_FAILURE); }
+	Int_t njets;
+	int nEntries = T -> GetEntries();
+	const int MaxNumJets = 20;
+	const int kMaxConstituents = 100;
+	array<Float_t, MaxNumJets> E,Eta,Phi,Pt,gE,gEta,gPhi,gPt;
+	array<Int_t, MaxNumJets> NComponent, gNComponent;
+	Float_t electron_gE,electron_gEta,electron_gPhi,electron_gPt;
+	array<array<Float_t, kMaxConstituents >, MaxNumJets > gComponent_Eta,gComponent_PID,
+	  gComponent_Pt,gComponent_Phi,gComponent_E, gComponent_Charge;
 
-	TTreeReader Tree("T",F);
-	int nEntries = Tree.GetEntries();
-	TTreeReaderValue<int> njets(Tree,"njets");
-	TTreeReaderArray<Int_t> NConst(Tree,"nComponent");
-	TTreeReaderArray<Float_t> E(Tree,"e");
-	TTreeReaderArray<Float_t> Eta(Tree,"eta");
-	TTreeReaderArray<Float_t> Phi(Tree,"phi");
-	TTreeReaderArray<Float_t> Pt(Tree,"pt");
+	T -> SetBranchAddress("njets",&njets);
+	T -> SetBranchAddress("e",&E);
+	T -> SetBranchAddress("eta",&Eta);
+	T -> SetBranchAddress("phi",&Phi);
+	T -> SetBranchAddress("pt",&Pt);
+	T -> SetBranchAddress("nComponent",&NComponent);
 	
-	TTreeReaderArray<Float_t> gE(Tree,"matched_charged_truthE");
-	TTreeReaderArray<Float_t> gEta(Tree,"matched_charged_truthEta");
-	TTreeReaderArray<Float_t> gPhi(Tree,"matched_charged_truthPhi");
-	TTreeReaderArray<Float_t> gPt(Tree,"matched_charged_truthPt");
+	T -> SetBranchAddress("matched_truthE",&gE);
+	T -> SetBranchAddress("matched_truthEta",&gEta);
+	T -> SetBranchAddress("matched_truthPhi",&gPhi);
+	T -> SetBranchAddress("matched_truthPt",&gPt);
+	T -> SetBranchAddress("matched_truthNComponent",&gNComponent);
+	
+	T -> SetBranchAddress("matched_Constituent_truthEta", gComponent_Eta.data());
+	T -> SetBranchAddress("matched_Constituent_truthPID",gComponent_PID.data());
+	T -> SetBranchAddress("matched_Constituent_truthPt",gComponent_Pt.data());
+	T -> SetBranchAddress("matched_Constituent_truthE",gComponent_E.data());
+	T -> SetBranchAddress("matched_Constituent_truthPhi",gComponent_Phi.data());
+	T -> SetBranchAddress("matched_Constituent_truthCharge",gComponent_Charge.data());
 	
 	// -------------------------------------------------------------
 	fstream tab;
@@ -162,33 +181,64 @@ int main(int argc, char ** argv) {
 	TH1F *** h1_dpp_p_et_bins = new TH1F**[size_eta_bin-1];	// delta p / p vs. p in eta bins
 	TH1F *** h1_dth_p_et_bins = new TH1F**[size_eta_bin-1];	// delta theta vs. p in eta bins
 	TH1F *** h1_dph_p_et_bins = new TH1F**[size_eta_bin-1];	// delta phi   vs. p in eta bins
+	int n_dpp_bins;
+	float left_edge;
+	float right_edge;
+	if (N_Missing_Cut){
+	  n_dpp_bins = 100;
+	  left_edge = -0.05;
+	  right_edge = 0.05;
+	}
+	else{
+          n_dpp_bins = 40;
+          left_edge = -0.4;
+	  right_edge = 0.4;
+	  // left_edge = -0.1;
+	  // right_edge = 1.0;
+	}
+	
 	for(int et = 0 ; et < size_eta_bin-1 ; et++){
 		h1_dpp_p_et_bins[et] = new TH1F*[size_mom_bin-1];
 		h1_dth_p_et_bins[et] = new TH1F*[size_mom_bin-1];
 		h1_dph_p_et_bins[et] = new TH1F*[size_mom_bin-1];
 		for(int p = 0 ; p < size_mom_bin-1 ; p++){
 			if(use_widths){
-				h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),";dP/P;Counts",40,
-							  approx_mean_dpp[et][p]-approx_sig_dpp_3_0[et][p],approx_mean_dpp[et][p]+approx_sig_dpp_3_0[et][p]);
+			  h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),";dP/P;Counts",n_dpp_bins,left_edge,right_edge);
+
 				h1_dth_p_et_bins[et][p] = new TH1F(Form("h1_dth_p_et_bins_%i_%i",et,p),";d#theta [rad];Counts",40,
 							  approx_mean_dth[et][p]-approx_sig_dth_3_0[et][p],approx_mean_dth[et][p]+approx_sig_dth_3_0[et][p]);
 				h1_dph_p_et_bins[et][p] = new TH1F(Form("h1_dph_p_et_bins_%i_%i",et,p),";d#phi [rad];Counts",40,
 							  approx_mean_dph[et][p]-approx_sig_dph_3_0[et][p],approx_mean_dph[et][p]+approx_sig_dph_3_0[et][p]);
 			}
 			else{//set histo binning and name
-			  h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),
+
+			  if (N_Missing_Cut){
+			    h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),";dP/P;Counts",n_dpp_bins,left_edge,right_edge);
+			    // h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),
+			    // 				     ";dP/P;Counts",80,-0.4,0.4  );
+			    
+			    h1_dth_p_et_bins[et][p] = new TH1F(Form("h1_dth_p_et_bins_%i_%i",et,p),
+							       ";d#theta [rad];Counts",50,-0.005,0.005);
+			    
+			    h1_dph_p_et_bins[et][p] = new TH1F(Form("h1_dph_p_et_bins_%i_%i",et,p),
+							     ";d#phi [rad];Counts"  ,20,-0.02  ,0.02  );
+			}
+			  else {
+
+			    h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),
 							     ";dP/P;Counts",80,-0.4,0.4  );
-			  
-			  h1_dth_p_et_bins[et][p] = new TH1F(Form("h1_dth_p_et_bins_%i_%i",et,p),
-							     ";d#theta [rad];Counts",120,-0.02,0.02);
-			  
-				h1_dph_p_et_bins[et][p] = new TH1F(Form("h1_dph_p_et_bins_%i_%i",et,p),
-								   ";d#phi [rad];Counts"  ,40,-0.1  ,0.1  );
+			    
+			    h1_dth_p_et_bins[et][p] = new TH1F(Form("h1_dth_p_et_bins_%i_%i",et,p),
+							       ";d#theta [rad];Counts",40,-0.2,0.2);
+			    
+			    h1_dph_p_et_bins[et][p] = new TH1F(Form("h1_dph_p_et_bins_%i_%i",et,p),
+							       ";d#phi [rad];Counts"  ,40,-0.2  ,0.2  );
+			  }
 }
 
-			h1_dpp_p_et_bins[et][p] -> SetTitle(Form("%.1f < |#eta| < %.1f, %.1f < E < %.1f GeV",eta_bin[et],eta_bin[et+1],mom_bin[p],mom_bin[p+1]));
-			h1_dth_p_et_bins[et][p] -> SetTitle(Form("%.1f < |#eta| < %.1f, %.1f < E < %.1f GeV",eta_bin[et],eta_bin[et+1],mom_bin[p],mom_bin[p+1]));
-			h1_dph_p_et_bins[et][p] -> SetTitle(Form("%.1f < |#eta| < %.1f, %.1f < E < %.1f GeV",eta_bin[et],eta_bin[et+1],mom_bin[p],mom_bin[p+1]));
+			h1_dpp_p_et_bins[et][p] -> SetTitle(Form("%.1f < |#eta| < %.1f, %.1f < P < %.1f GeV/c",eta_bin[et],eta_bin[et+1],mom_bin[p],mom_bin[p+1]));
+			h1_dth_p_et_bins[et][p] -> SetTitle(Form("%.1f < |#eta| < %.1f, %.1f < P < %.1f GeV/c",eta_bin[et],eta_bin[et+1],mom_bin[p],mom_bin[p+1]));
+			h1_dph_p_et_bins[et][p] -> SetTitle(Form("%.1f < |#eta| < %.1f, %.1f < P < %.1f GeV/c",eta_bin[et],eta_bin[et+1],mom_bin[p],mom_bin[p+1]));
 		}
 	}
 	// -------------------------------------------------------------	
@@ -196,52 +246,81 @@ int main(int argc, char ** argv) {
 	TH1F ** h1_dth_v_p_et_bins = new TH1F*[size_eta_bin-1];
 	TH1F ** h1_dph_v_p_et_bins = new TH1F*[size_eta_bin-1];
 	TH2F * mom_response = new TH2F("mom_response","P_{Charge}^{Reco} vs. P_{Charge}^{Truth}",50,0,50,0,50,0);
+
 	for(int et = 0 ; et < size_eta_bin-1 ; et++){
-		h1_dpp_v_p_et_bins[et] = new TH1F(Form("h1_dpp_v_p_et_bins_%i",et),";P [GeV/c];dP/P [%]"      ,size_mom_bin-1,mom_bin);	prettyTH1F( h1_dpp_v_p_et_bins[et] , 50+et , 20 , 1. , 100. );
-		h1_dth_v_p_et_bins[et] = new TH1F(Form("h1_dth_v_p_et_bins_%i",et),";P [GeV/c];d#theta [rad]",size_mom_bin-1,mom_bin);	prettyTH1F( h1_dth_v_p_et_bins[et] , 50+et , 20 , 0.001 , 1.  );
-		h1_dph_v_p_et_bins[et] = new TH1F(Form("h1_dph_v_p_et_bins_%i",et),";P [GeV/c];d#phi [rad]"  ,size_mom_bin-1,mom_bin);	prettyTH1F( h1_dph_v_p_et_bins[et] , 50+et , 20 , 0.001 , 1. );
+		h1_dpp_v_p_et_bins[et] = new TH1F(Form("h1_dpp_v_p_et_bins_%i",et),";P [GeV/c];dP/P [%]"      ,size_mom_bin-1,mom_bin);	prettyTH1F( h1_dpp_v_p_et_bins[et] , et , 20 , 1. , 100. );
+		h1_dth_v_p_et_bins[et] = new TH1F(Form("h1_dth_v_p_et_bins_%i",et),";P [GeV/c];d#theta [rad]",size_mom_bin-1,mom_bin);	prettyTH1F( h1_dth_v_p_et_bins[et] , et , 20 , 0.001 , 1.  );
+		h1_dph_v_p_et_bins[et] = new TH1F(Form("h1_dph_v_p_et_bins_%i",et),";P [GeV/c];d#phi [rad]"  ,size_mom_bin-1,mom_bin);	prettyTH1F( h1_dph_v_p_et_bins[et] , et , 20 , 0.001 , 1. );
 	}
 
 	TH1F ** h1_dpp_v_et_p_bins = new TH1F*[size_mom_bin-1];
 	TH1F ** h1_dth_v_et_p_bins = new TH1F*[size_mom_bin-1];
 	TH1F ** h1_dph_v_et_p_bins = new TH1F*[size_mom_bin-1];
-
+	
 	for(int p = 0 ; p < size_mom_bin-1 ; p++){
-		h1_dpp_v_et_p_bins[p] = new TH1F(Form("h1_dpp_v_et_p_bins_%i",p),";#eta;dP/P [%]"      ,size_eta_bin-1,eta_bin);	prettyTH1F( h1_dpp_v_et_p_bins[p] , 50+p , 20 , 1. , 100. );
-		h1_dth_v_et_p_bins[p] = new TH1F(Form("h1_dth_v_et_p_bins_%i",p),";#eta;d#theta [rad]",size_eta_bin-1,eta_bin);	prettyTH1F( h1_dth_v_et_p_bins[p] , 50+p , 20 , 0.001 , 1.  );
-		h1_dph_v_et_p_bins[p] = new TH1F(Form("h1_dph_v_et_p_bins_%i",p),";#eta;d#phi [rad]"  ,size_eta_bin-1,eta_bin);	prettyTH1F( h1_dph_v_et_p_bins[p] , 50+p , 20 , 0.001 , 1000. );
+		h1_dpp_v_et_p_bins[p] = new TH1F(Form("h1_dpp_v_et_p_bins_%i",p),";#eta;dP/P [%]"      ,size_eta_bin-1,eta_bin);	prettyTH1F( h1_dpp_v_et_p_bins[p] , p , 20 , 1. , 100. );
+		h1_dth_v_et_p_bins[p] = new TH1F(Form("h1_dth_v_et_p_bins_%i",p),";#eta;d#theta [rad]",size_eta_bin-1,eta_bin);	prettyTH1F( h1_dth_v_et_p_bins[p] , p , 20 , 0.001 , 1.  );
+		h1_dph_v_et_p_bins[p] = new TH1F(Form("h1_dph_v_et_p_bins_%i",p),";#eta;d#phi [rad]"  ,size_eta_bin-1,eta_bin);	prettyTH1F( h1_dph_v_et_p_bins[p] , p , 20 , 0.001 , 1000. );
 	}
 	cout << "\033[1;31m********************************************************************\033[0m\n";
 	// -------------------------------------------------------------
 	// Loop over entries of the tree	
-	int ev = 0;
-	while ( Tree.Next() ){
-	  if (ev%10000==0) fprintf(stderr,"%d: Entry %i out of %d\n",__LINE__,ev,nEntries);
+	for (Long64_t ev = 0; ev < nEntries; ev++){
+	  T->GetEntry(ev);
+	  if (ev%10000==0) fprintf(stderr,"%d: Entry %lli out of %d\n",__LINE__,ev,nEntries);
 	  //if (ev==500000) break;
-	  for (int n = 0; n < *njets; ++n) {
+	  for (int n = 0; n < njets; ++n) {
 
-	    if (NConst[n] < 4) continue;
+	    if (NComponent[n] < 4) continue;
 	    if (isnan(gE[n])) continue;
 	    //if ( (abs(Eta[n]) > 1.1-sqrt(0.5)/2) && (abs(Eta[n]) < 1.1+sqrt(0.5)/2) ) continue;
 	    if ( (abs(Eta[n]) > 1.) && (abs(Eta[n]) < 1.2) ) continue;
 	    ROOT::Math::PtEtaPhiEVector Lorentz(Pt[n],Eta[n],Phi[n],E[n]);
 	    ROOT::Math::PtEtaPhiEVector gLorentz(gPt[n],gEta[n],gPhi[n],gE[n]);
-		  
-	    float dth = Lorentz.Theta() - gLorentz.Theta();
-	    
+
+      bool eta_const_cut = true; //avoid crack where barrel meets disks
+      bool pt_const_cut = true;//cut away helixes
+      int n_neutral = 0;
+      int n_ch = 0;
+      int n_neutral_max = 1;
+      bool maxed_neutrals = true;
+      float min_comp_pt = 0.1; //100 MeV, 3 hits
+
+      for (int i = 0; i < gNComponent[n]; i++){
+        eta_const_cut = !((abs(gComponent_Eta[n][i]) > 1.0) &&
+                          (abs(gComponent_Eta[n][i]) < 1.2) &&
+                          (abs(gComponent_Eta[n][i]) < 3.5));
+        pt_const_cut = (gComponent_Pt[n][i] > min_comp_pt);
+        if (!eta_const_cut || !pt_const_cut) break; //skip jets that fail (general cut)
+        if (gComponent_Charge[n][i] == 0)
+          n_neutral++;
+        else
+          n_ch++;
+
+        ROOT::Math::PtEtaPhiEVector gConstLorentz(gComponent_Pt[n][i],
+                                                  gComponent_Eta[n][i],
+                                                  gComponent_Phi[n][i],
+                                                  gComponent_E[n][i]);
+        if (gComponent_Charge[n][i] == 0)
+          gLorentz -= gConstLorentz;
+      }
+      if (!eta_const_cut || !pt_const_cut) continue;
+      //maxed_neutrals =  n_neutral <  n_neutral_max;
+      int N_Missing = gNComponent[n] - NComponent[n] - n_neutral;
+      if ( (N_Missing_Cut) && (N_Missing >= N_Missing_Max) ) continue;
+      if ( (!N_Missing_Cut) && (N_Missing < N_Missing_Max) ) continue; //anticut of above
+      float dth = Lorentz.Theta() - gLorentz.Theta();
 	    float geta = gLorentz.Eta();
-	    
 	    float P_reco = Lorentz.P();
 	    float P_truth = gLorentz.P();
-	    float dP_P = (P_reco-P_truth)/P_truth;
+	    float dP_P = (P_truth-P_reco)/P_truth;
 	    //float dP_P = (P_reco)/P_truth;		
 	    mom_response->Fill(gLorentz.P(),Lorentz.P());
 	    
 	    float dph = Lorentz.Phi() - gLorentz.Phi();
 	    float dR = ROOT::Math::VectorUtil::DeltaR(Lorentz,gLorentz);
-	    //if( (DeltaR_Cut) && (abs(dph) > 0.05)) continue;
-	    if ( (DeltaR_Cut) && (dR > 0.1) ) continue;
-	    
+	    //if( (N_Missing_Cut) && (abs(dph) > 0.05)) continue;
+
 	        //Filling 
 		for(int et = 0 ; et < size_eta_bin-1 ; et++){
 			if( geta >  eta_bin[et] &&  geta <= eta_bin[et+1] ){
@@ -255,7 +334,6 @@ int main(int argc, char ** argv) {
 			}
 		}
 	  }
-	  ++ev;
 	}
 	cout << "\033[1;31m********************************************************************\033[0m\n";
 	// -------------------------------------------------------------
@@ -281,7 +359,8 @@ int main(int argc, char ** argv) {
 
 		for(int p = 0 ; p < size_mom_bin-1 ; p++){
 		  if(use_widths){
-		    
+
+		    //Double Gauss Fit
 		    double par[6];
 		    TF1 *G1 = new TF1 (Form("G1_%i_%i",et,p),"landau",-0.2,0.1);
 		    TF1 *G2 = new TF1 (Form("G2_%i_%i",et,p),"gaus",approx_mean_dpp[et][p]-approx_sig_dpp_3_0[et][p],
@@ -310,25 +389,29 @@ int main(int argc, char ** argv) {
 		    //f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.2,0.2);
 		    //f_gaus_dpp[et][p]->SetParameter(1,0.);
 
-		    if (DeltaR_Cut){
+		    if (N_Missing_Cut){
 		      //f_gaus_dpp[et][p] = double_gaus(h1_dpp_p_et_bins[et][p],-0.02,0.02,-0.2,0.01,TString("dpp"),et,p); //dphi cut
 		      f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.02,0.02);
-		      f_gaus_dth[et][p] = double_gaus(h1_dth_p_et_bins[et][p],-0.002,0.002,-0.005,0.005,TString("dth"),et,p);
-		      f_gaus_dph[et][p] = double_gaus(h1_dph_p_et_bins[et][p],-0.015,0.015,-0.08,0.08,TString("dph"),et,p);
+		      f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.0008,0.0008);
+		      f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.005,0.005);
+		      // f_gaus_dth[et][p] = double_gaus(h1_dth_p_et_bins[et][p],-0.002,0.002,-0.005,0.005,TString("dth"),et,p);
+		      // f_gaus_dph[et][p] = double_gaus(h1_dph_p_et_bins[et][p],-0.015,0.015,-0.08,0.08,TString("dph"),et,p);
 		      //f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.02,0.02);
-		      if (eta_bin[et] > 1.1){
-			f_gaus_dpp[et][p] = double_gaus(h1_dpp_p_et_bins[et][p],-0.02,0.02,-0.04,0.04,TString("dpp"),et,p);
-			if (mom_bin[p] > 9)
-			f_gaus_dph[et][p] = double_gaus(h1_dph_p_et_bins[et][p],-0.02,0.02,-0.01,0.1,TString("dph"),et,p);
-		      }
-		      if (eta_bin[et] < 0.1)
-			f_gaus_dth[et][p] = double_gaus(h1_dth_p_et_bins[et][p],-0.002,0.002,-0.02,0.02,TString("dth"),et,p);
 		    }
 		    
 		    else{
-		    f_gaus_dpp[et][p] = double_gaus(h1_dpp_p_et_bins[et][p],-0.08,0.08,-0.5,1.5,TString("dpp"),et,p);
-		    f_gaus_dth[et][p] = double_gaus(h1_dth_p_et_bins[et][p],-0.02,0.02,-0.2,0.2,TString("dth"),et,p);
-		    f_gaus_dph[et][p] = double_gaus(h1_dph_p_et_bins[et][p],-0.02,0.02,-0.2,0.2,TString("dph"),et,p);
+		      //POISS
+		      f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),
+		      "[0]*TMath::Power(([1]/[2]),(x/[2]))*(TMath::Exp(-([1]/[2])))/TMath::Gamma((x/[2])+1.)", 0., 0.4);
+		      f_gaus_dpp[et][p]->SetParameters(1,1,1);
+		      //f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.02,0.02);
+		      //f_gaus_dpp[et][p] = double_gaus(h1_dpp_p_et_bins[et][p],-0.08,0.5,-0.5,1.5,TString("dpp"),et,p);		      
+		      //f_gaus_dth[et][p] = double_gaus(h1_dth_p_et_bins[et][p],-0.02,0.02,-0.2,0.2,TString("dth"),et,p);
+		      //f_gaus_dph[et][p] = double_gaus(h1_dph_p_et_bins[et][p],-0.02,0.02,-0.2,0.2,TString("dph"),et,p);
+		      f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.02,0.02);
+		      f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.05,0.05);
+		      f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.05,0.05);
+
 		    }
  // if (eta_bin[et] < 1){
 		    //   //f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.3,0.1);
@@ -353,23 +436,57 @@ int main(int argc, char ** argv) {
 			// Momentum resolutions
 			c_fits_p [et] -> cd(p+1);
 			h1_dpp_p_et_bins[et][p] -> Draw();	//h1_dpp_p_et_bins[et][p] -> Fit(Form("f_gaus_dpp_%i_%i",et,p),"RQ");
-			h1_dpp_p_et_bins[et][p] -> Fit(f_gaus_dpp[et][p],"RQ");
-			width_dpp[et][p] = f_gaus_dpp[et][p] -> GetParameter(2);
-			error_dpp[et][p] = (f_gaus_dpp[et][p] -> GetParError(2));//*(f_gaus_dpp[et][p] -> GetChisquare())/(f_gaus_dpp[et][p] -> GetNDF());
-			mean_dpp[et][p] = f_gaus_dpp[et][p] -> GetParameter(1);
+
+			if(N_Missing_Cut){
+
+			  h1_dpp_p_et_bins[et][p] -> Fit(f_gaus_dpp[et][p],"RQ");			
+			  width_dpp[et][p] = f_gaus_dpp[et][p] -> GetParameter(2);
+			  error_dpp[et][p] = (f_gaus_dpp[et][p] -> GetParError(2));
+			  mean_dpp[et][p] = f_gaus_dpp[et][p] -> GetParameter(1);
+			  
+			  //*(f_gaus_dpp[et][p] -> GetChisquare())/(f_gaus_dpp[et][p] -> GetNDF());
+			}
+			
+			else{
+			  //Full Width at Half Max for dP/P
+			  double max = h1_dpp_p_et_bins[et][p]->GetMaximum();
+			  //double x_middle = h1_dpp_p_et_bins[et][p]->GetMean();
+			  double fwhm_left = h1_dpp_p_et_bins[et][p]->FindFirstBinAbove(max/2.);
+			  double fwhm_right = h1_dpp_p_et_bins[et][p]->FindLastBinAbove(max/2.);
+			  double fwhm = h1_dpp_p_et_bins[et][p]->GetBinCenter(fwhm_right) -
+			    h1_dpp_p_et_bins[et][p]->GetBinCenter(fwhm_left); 
+			  
+			  width_dpp[et][p] = fwhm;
+			  cout<<"max = "<<max<<" left = "<<fwhm_left<<" right = "<<fwhm_right<<" width = "<<width_dpp[et][p]<<endl;
+			  error_dpp[et][p] = sqrt(pow(h1_dpp_p_et_bins[et][p]->GetBinWidth(fwhm_left),2)+pow(h1_dpp_p_et_bins[et][p]->GetBinWidth(fwhm_right),2));
+			  // error_dpp[et][p] = sqrt(pow(h1_dpp_p_et_bins[et][p]->GetBinError(fwhm_left),2) +
+			  //  			pow(h1_dpp_p_et_bins[et][p]->GetBinError(fwhm_right),2) );
+			  //h1_dpp_p_et_bins[et][p]->GetStdDev();
+			  //mean_dpp[et][p] = h1_dpp_p_et_bins[et][p]->GetMean()
+			  // h1_dpp_p_et_bins[et][p] -> Fit(f_gaus_dpp[et][p],"RQ");//this is actually a poisson fit
+			  // width_dpp[et][p] = sqrt(f_gaus_dpp[et][p] -> GetParameter(0));
+			  // error_dpp[et][p] = (0.5*pow(width_dpp[et][p],-0.5)*f_gaus_dpp[et][p] -> GetParError(0));
+                          // mean_dpp[et][p] = f_gaus_dpp[et][p] -> GetParameter(0);
+			  width_dpp[et][p] = h1_dpp_p_et_bins[et][p]->GetStdDev();
+			  error_dpp[et][p] = width_dpp[et][p]/sqrt(2*(h1_dpp_p_et_bins[et][p]->GetEntries())-2);
+			  mean_dpp[et][p] = h1_dpp_p_et_bins[et][p]->GetMean();
+			}
 			
 			// Theta resolution
 			c_fits_th[et] -> cd(p+1);
+			float rad_mrad = 1.;;
+			if (plot_mrad)
+			  rad_mrad = 1000.;
 			h1_dth_p_et_bins[et][p] -> Draw();	h1_dth_p_et_bins[et][p] -> Fit(Form("f_gaus_dth_%i_%i",et,p),"RQ");
-			width_dth[et][p] = f_gaus_dth[et][p] -> GetParameter(2);
-			error_dth[et][p] = (f_gaus_dth[et][p] -> GetParError(2));//*(f_gaus_dth[et][p] -> GetChisquare())/(f_gaus_dth[et][p] -> GetNDF());
-			mean_dth[et][p] = f_gaus_dth[et][p] -> GetParameter(1);
+			width_dth[et][p] = f_gaus_dth[et][p] -> GetParameter(2)*rad_mrad;
+			error_dth[et][p] = f_gaus_dth[et][p] -> GetParError(2)*rad_mrad;
+			mean_dth[et][p] = f_gaus_dth[et][p] -> GetParameter(1)*rad_mrad;
 			
 			// Phi resolution
 			c_fits_ph[et] -> cd(p+1);
 			h1_dph_p_et_bins[et][p] -> Draw();	h1_dph_p_et_bins[et][p] -> Fit(Form("f_gaus_dph_%i_%i",et,p),"RQ");
-			width_dph[et][p] = f_gaus_dph[et][p] -> GetParameter(2);
-			error_dph[et][p] = (f_gaus_dph[et][p] -> GetParError(2));//*(f_gaus_dph[et][p] -> GetChisquare())/(f_gaus_dph[et][p] -> GetNDF());
+			width_dph[et][p] = f_gaus_dph[et][p] -> GetParameter(2)*rad_mrad;
+			error_dph[et][p] = (f_gaus_dph[et][p] -> GetParError(2)*rad_mrad);//*(f_gaus_dph[et][p] -> GetChisquare())/(f_gaus_dph[et][p] -> GetNDF());
 			mean_dph[et][p] = f_gaus_dph[et][p] -> GetParameter(1);
 			cout<<__LINE__<<": dph width = "<<width_dph[et][p]<<endl;
 			cout<<__LINE__<<": dpp width = "<<width_dpp[et][p]<<endl;
@@ -501,8 +618,10 @@ int main(int argc, char ** argv) {
 	leg1 -> Draw("same");
 	TLegend * leg2 = new TLegend(0.20,0.5,0.65,0.95);
 	leg2 -> SetLineColor(0);
-	for(int p = 0 ; p < size_mom_bin-1 ; p++) leg2 -> AddEntry(h1_dph_v_et_p_bins[p],Form("%.1f < P < %.1f GeV",mom_bin[p],mom_bin[p+1]));
-	c1 -> cd(4);
+	for(int p = 0 ; p < size_mom_bin-1 ; p++) leg2 -> AddEntry(h1_dph_v_et_p_bins[p],Form("%.1f < P < %.1f GeV/c",mom_bin[p],mom_bin[p+1]));
+	c1 -> cd(5);
+	if (N_Missing_Cut)
+	  c1->cd(4);
 	leg2 -> Draw("same");
 	c1 -> Modified();
 	c1 -> Update();
@@ -547,20 +666,16 @@ int main(int argc, char ** argv) {
 }
 // ============================================================================================================================================
 void prettyTH1F( TH1F * h1 , int color , int marker , float min , float max ){
-	h1 -> SetLineWidth(2);
-	h1 -> SetLineColor(color);
+  int root_colors[8] = {52,56,66,71,78,90,94,100};
+        h1 -> SetLineWidth(2);
+	h1 -> SetLineColor(root_colors[color]);
 	h1 -> SetMarkerStyle(marker);
-	h1 -> SetMarkerColor(color);
-
-	// h1 -> SetMinimum(min);
-	// h1 -> SetMaximum(max);
+	h1 -> SetMarkerColor(root_colors[color]);
 
 	h1 -> GetXaxis() -> CenterTitle();
 	h1 -> GetXaxis() -> SetNdivisions(107); // to draw less tick marks
 	h1 -> GetYaxis() -> CenterTitle();
 	h1 -> GetYaxis() -> SetNdivisions(107); // to draw less tick marks
-
-	//h1 -> SetMinimum(0.001);
 }
 
 void better_yaxis(TH1F ** h1_array,int array_size){
