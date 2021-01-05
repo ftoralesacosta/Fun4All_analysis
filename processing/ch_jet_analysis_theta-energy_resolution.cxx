@@ -30,6 +30,7 @@ using namespace std;
 void prettyTH1F( TH1F * h1 , int color , int marker , float min , float max );
 void better_yaxis(TH1F ** h1_array,int array_size);
 TF1 * double_gaus(TH1F *h1,float min1, float max1, float min2, float max2,TString type ,int et, int p);
+float constituent_pT_threshold(float eta);
 // ============================================================================================================================================
 int main(int argc, char ** argv) {
 
@@ -282,13 +283,11 @@ int main(int argc, char ** argv) {
       int n_ch = 0;
       int n_neutral_max = 1;
       bool maxed_neutrals = true;
-      float min_comp_pt = 0.1; //100 MeV, 3 hits
-
       for (int i = 0; i < gNComponent[n]; i++){
         eta_const_cut = !((abs(gComponent_Eta[n][i]) > 1.06) &&
                           (abs(gComponent_Eta[n][i]) < 1.13) &&
                           (abs(gComponent_Eta[n][i]) < 3.5));
-        pt_const_cut = (gComponent_Pt[n][i] > min_comp_pt);
+	pt_const_cut = (gComponent_Pt[n][i] > constituent_pT_threshold(gComponent_Eta[n][i]));
         if (!eta_const_cut || !pt_const_cut) break; //skip jets that fail (general cut)
         if (gComponent_Charge[n][i] == 0)
           n_neutral++;
@@ -731,3 +730,31 @@ TF1 * double_gaus(TH1F *h1,float min1, float max1, float min2, float max2,TStrin
   double_gaus->SetParameters(par);
   return double_gaus;
 }
+
+float constituent_pT_threshold(float eta)
+{
+// Minimum pT for B = 1.5 T (https://physdiv.jlab.org/DetectorMatrix/):
+  
+// 100 MeV/c for -3.0 < eta < -2.5
+// 130 MeV/c for -2.5 < eta < -2.0
+// 70 MeV/c for -2.0 < eta < -1.5
+// 150 MeV/c for -1.5 < eta < -1.0
+  //200 MeV/c for -1.0 < eta < 1.0
+// 150 MeV/c for 1.0 < eta < 1.5
+// 70 MeV/c for 1.5 < eta < 2.0
+// 130 MeV/c for 2.0 < eta < 2.5
+// 100 MeV/c for 2.5 < eta < 3.0
+
+  eta = abs(eta);
+  float eta_bins[6] = {3.0,2.5,2.0,1.5,1.0,0.0};
+  float pT_threshold_array[5] = {0.1,0.13,0.70,0.15,0.2}; 
+  float pT_threshold = 0;
+  for (int i = 0; i < 5; i++)
+    if ( (eta < eta_bins[i])&&(eta > eta_bins[i+1]) )
+      pT_threshold = pT_threshold_array[i];
+
+  return pT_threshold;
+}
+
+
+
