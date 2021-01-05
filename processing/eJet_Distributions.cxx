@@ -220,8 +220,8 @@ int main(int argc, char *argv[])
   //float max_DeltaR = 0.1; //reco-truth match
   //float max_dE_E = 0.03;
   int min_comp = 4;
-  float min_comp_pt = 0.06; // 20MeV for 1.4 T field, 95MeV for 3 T field. 60MeV safety in 1.4T field.
-  //float min_comp_pt = 1.0; //1GeV Cut
+  float min_comp_pt = 0.15; // 20MeV for 1.4 T field, 95MeV for 3 T field. 60MeV safety in 1.4T field.
+  float min_comp_pt_central = 0.2; //|eta| < 1 
   float minE = 4.0;
   float jet_cut_counter[3] = {0};
   float max_miss_const = 1;
@@ -270,8 +270,15 @@ int main(int argc, char *argv[])
 
 	eta_const_cut = (  ( (abs(gComponent_Eta[n][i]) > 1.06) && (abs(gComponent_Eta[n][i]) < 1.13) )
 			    || (abs(gComponent_Eta[n][i]) > 3.5)  );
-	pt_const_cut = (gComponent_Pt[n][i] < min_comp_pt);
-      	if (eta_const_cut || pt_const_cut) break; //skip jets that fail (general cut)
+
+	if (abs(gComponent_Eta[n][i]) > 1.0)
+	  pt_const_cut = (gComponent_Pt[n][i] < min_comp_pt);
+	
+	else
+	  pt_const_cut = (gComponent_Pt[n][i] > min_comp_pt_central);
+
+
+	if (eta_const_cut || pt_const_cut) break; //skip jets that fail (general cut)
 	if (gComponent_Charge[n][i] == 0)
 	  n_neutral++;
 	else
