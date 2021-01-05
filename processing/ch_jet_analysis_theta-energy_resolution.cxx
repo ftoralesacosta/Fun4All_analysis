@@ -273,8 +273,6 @@ int main(int argc, char ** argv) {
 
 	    if (NComponent[n] < 4) continue;
 	    if (isnan(gE[n])) continue;
-	    //if ( (abs(Eta[n]) > 1.1-sqrt(0.5)/2) && (abs(Eta[n]) < 1.1+sqrt(0.5)/2) ) continue;
-	    if ( (abs(Eta[n]) > 1.) && (abs(Eta[n]) < 1.2) ) continue;
 	    ROOT::Math::PtEtaPhiEVector Lorentz(Pt[n],Eta[n],Phi[n],E[n]);
 	    ROOT::Math::PtEtaPhiEVector gLorentz(gPt[n],gEta[n],gPhi[n],gE[n]);
 
@@ -287,8 +285,8 @@ int main(int argc, char ** argv) {
       float min_comp_pt = 0.1; //100 MeV, 3 hits
 
       for (int i = 0; i < gNComponent[n]; i++){
-        eta_const_cut = !((abs(gComponent_Eta[n][i]) > 1.0) &&
-                          (abs(gComponent_Eta[n][i]) < 1.2) &&
+        eta_const_cut = !((abs(gComponent_Eta[n][i]) > 1.06) &&
+                          (abs(gComponent_Eta[n][i]) < 1.13) &&
                           (abs(gComponent_Eta[n][i]) < 3.5));
         pt_const_cut = (gComponent_Pt[n][i] > min_comp_pt);
         if (!eta_const_cut || !pt_const_cut) break; //skip jets that fail (general cut)
