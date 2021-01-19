@@ -33,6 +33,19 @@ float calc_Q_square(float inE, ROOT::Math::PtEtaPhiEVector v)
 {
   return 2.*inE*v.E()*(1-TMath::Abs(TMath::Cos(v.Theta())));
 }
+float constituent_pT_threshold(float eta)
+{
+  // Minimum pT for B = 1.5 T (https://physdiv.jlab.org/DetectorMatrix/):
+  
+  float eta_bins[6] = {3.0,2.5,2.0,1.5,1.0,0.0};
+  float pT_threshold_array[5] = {0.1,0.13,0.70,0.15,0.2};
+  float pT_threshold = 0;
+  for (int i = 0; i < 5; i++)
+    if ( (eta < eta_bins[i])&&(eta > eta_bins[i+1]) )
+      pT_threshold = pT_threshold_array[i];
+
+  return pT_threshold;
+}
 using namespace std;
 int main(int argc, char *argv[])
 {
@@ -125,7 +138,7 @@ int main(int argc, char *argv[])
   TH1F * eoTj = new TH1F("ETrueJet_over_Eelectron", "E_{Reco}^{True}/E^{True}_{e} (|#eta^{Jet}|<0.7)",80,0,2);
   TH1F * eoRj = new TH1F("Eelectron_over_ERecoJet_over_Eelectron", "E_{Jet}^{Reco}/E^{True}_{e} (|#eta^{Jet}|<0.7)",80,0,2);
   //TH1F * RjoTj = new TH1F("PRecoJet_over_PTrueJet", "P_{Jet}^{True} - P^{Reco}_{Jet} / P^{True}_{Jet}",80,-0.4,0.4);
-  TH1F * RjoTj = new TH1F("PRecoJet_over_PTrueJet", "P_{Jet}^{True} - P^{Reco}_{Jet} / P^{True}_{Jet}",120,-0.4,1.);
+  TH1F * RjoTj = new TH1F("dP_P", "P_{Jet}^{True} - P^{Reco}_{Jet} / P^{True}_{Jet}",100,-0.25,0.25);
   TH1F * justE = new TH1F("Reco Energy", "Energy",100,0,100);
 
   //Difference Histos
@@ -189,7 +202,7 @@ int main(int argc, char *argv[])
   TH1F *reco_E_anticut = new TH1F("reco_E(anti-cut)","Reconstructed Jet Energy(anti-cut)",100,0,50);
   TH1F *reco_nconst_anticut = new TH1F("reco_nconst(anti-cut)","Reconstructed Jet N Component(anti-cut)",20,0,20);
   TH1F *reco_P_anticut = new TH1F("reco_P(anti-cut)","Reconstructed Jet Momentum(anti-cut)",100,0,50);
-  TH1F *RjoTj_anticut = new TH1F("PRecoJet_over_PTrueJet_anticut", "P_{Jet}^{True} - P_{Jet}^{Reco} / P^{True}_{Jet} (anti-cut) ",80,-0.4,0.4);
+  TH1F *RjoTj_anticut = new TH1F("PRecoJet_over_PTrueJet_anticut", "P_{Jet}^{True} - P_{Jet}^{Reco} / P^{True}_{Jet} (anti-cut) ",100,-0.25,0.25);
   TH1F *nconst_diff_anticut = new TH1F("nconst_diff_anticut","Truth - Reco No. Constituents",20,0,20);
   TH1F *comp_eta_anticut = new TH1F("comp_eta_anticut","Jet Component #eta (Anti-Cut)",40,-4,4);
   TH1F *comp_pt_anticut = new TH1F("comp_pt_anticut","Jet Component p_{T} (Anti-Cut)",500,0,50);
@@ -220,8 +233,6 @@ int main(int argc, char *argv[])
   //float max_DeltaR = 0.1; //reco-truth match
   //float max_dE_E = 0.03;
   int min_comp = 4;
-  float min_comp_pt = 0.15; // 20MeV for 1.4 T field, 95MeV for 3 T field. 60MeV safety in 1.4T field.
-  float min_comp_pt_central = 0.2; //|eta| < 1 
   float minE = 4.0;
   float jet_cut_counter[3] = {0};
   float max_miss_const = 1;
@@ -271,12 +282,7 @@ int main(int argc, char *argv[])
 	eta_const_cut = (  ( (abs(gComponent_Eta[n][i]) > 1.06) && (abs(gComponent_Eta[n][i]) < 1.13) )
 			    || (abs(gComponent_Eta[n][i]) > 3.5)  );
 
-	if (abs(gComponent_Eta[n][i]) > 1.0)
-	  pt_const_cut = (gComponent_Pt[n][i] < min_comp_pt);
-	
-	else
-	  pt_const_cut = (gComponent_Pt[n][i] > min_comp_pt_central);
-
+	pt_const_cut = (gComponent_Pt[n][i] < constituent_pT_threshold(gComponent_Eta[n][i]));
 
 	if (eta_const_cut || pt_const_cut) break; //skip jets that fail (general cut)
 	if (gComponent_Charge[n][i] == 0)
@@ -310,8 +316,7 @@ int main(int argc, char *argv[])
       //cut_to_study = (abs(dP_P) < max_dP_P);
       //cut_to_study = (NComponent[n] >= min_comp);
       //cut_to_study =( (NComponent[n] > min_comp) && (E[n] > minE) );
-      //cut_to_study = ((gNComponent[n] - NComponent[n] - n_neutral) < max_miss_const);
-      //cut_to_study = ((gNComponent[n] - NComponent[n]) < max_miss_const);
+      cut_to_study = ((gNComponent[n] - NComponent[n] - n_neutral) < max_miss_const);
       //cut_to_study = pt_const_cut;
       //cut_to_study = maxed_neutrals;
 
@@ -377,8 +382,8 @@ int main(int argc, char *argv[])
 	}
       
       jet_cut_counter[0]+=1.; //Jets that only pass continue statements
-      Float_t True_DeltaPhi = TMath::Abs(TVector2::Phi_mpi_pi(electron_gPhi - gPhi[n]));
-      Float_t Reco_DeltaPhi = TMath::Abs(TVector2::Phi_mpi_pi(electron_gPhi - Phi[n]));
+      Float_t True_DeltaPhi = TMath::Abs(TVector2::Phi_mpi_pi(gLorentz.Phi() - electron_gPhi - TMath::Pi()));
+      Float_t Reco_DeltaPhi = TMath::Abs(TVector2::Phi_mpi_pi(Lorentz.Phi() - electron_gPhi - TMath::Pi()));
       dPhiTj->Fill(True_DeltaPhi);
       dPhiRj->Fill(Reco_DeltaPhi);
       dEtaTj->Fill(electron_gEta-gEta[n]);
@@ -513,4 +518,3 @@ int main(int argc, char *argv[])
   fout->Close();
 
 }
-
