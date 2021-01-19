@@ -117,6 +117,9 @@ int main(int argc, char *argv[])
   TH1::SetDefaultSumw2(true);
   TH2::SetDefaultSumw2(true);
   
+  gStyle->SetMarkerColor(4);
+  gStyle->SetLineColor(4);
+
   //2D Histos
   TH2F * Tjve = new TH2F("ETrueJet_vs_Eelectron", "E^{True}_{Jet} (|#eta^{Jet}|<0.7) vs. E_{e}^{True}",100,0,25,100,0,25);
   TH2F * Rjve = new TH2F("ERecoJet_vs_Eelectron", "E^{Reco}_{Jet} (|#eta^{Jet}|<0.7) vs. E_{e}^{True}",100,0,25,100,0,25);
@@ -125,7 +128,8 @@ int main(int argc, char *argv[])
   TH1F * eoTj = new TH1F("ETrueJet_over_Eelectron", "E_{Reco}^{True}/E^{True}_{e} (|#eta^{Jet}|<0.7)",80,0,2);
   TH1F * eoRj = new TH1F("Eelectron_over_ERecoJet_over_Eelectron", "E_{Jet}^{Reco}/E^{True}_{e} (|#eta^{Jet}|<0.7)",80,0,2);
   //TH1F * RjoTj = new TH1F("PRecoJet_over_PTrueJet", "P_{Jet}^{True} - P^{Reco}_{Jet} / P^{True}_{Jet}",80,-0.4,0.4);
-  TH1F * RjoTj = new TH1F("PRecoJet_over_PTrueJet", "P_{Jet}^{True} - P^{Reco}_{Jet} / P^{True}_{Jet}",120,-0.4,1.);
+  TH1F * RjoTj = new TH1F("dP_P", "P_{Jet}^{True} - P^{Reco}_{Jet} / P^{True}_{Jet}",100,-0.25,0.25);
+  RjoTj->GetYaxis()->SetTitle("Counts");
   TH1F * justE = new TH1F("Reco Energy", "Energy",100,0,100);
 
   //Difference Histos
@@ -138,8 +142,8 @@ int main(int argc, char *argv[])
   TH1F * dEtaRj = new TH1F("dEta_e_RecoJet", "|#Delta#eta| (#eta_{e} - #eta^{Reco}_{Jet})", 80,-10,10);
   
   //Simple Distributions
-  gStyle->SetMarkerColor(4);
-  gStyle->SetLineColor(4);
+  // gStyle->SetMarkerColor(4);
+  // gStyle->SetLineColor(4);
   TH1F *reco_phi = new TH1F("reco_phi","Reconstructed Jet #varphi",16,-M_PI,M_PI); 
   TH1F *reco_eta = new TH1F("reco_eta","Recontsructed Jet #eta",50,-5,5);
   TH1F *reco_E = new TH1F("reco_E","Reconstructed Jet Energy",100,0,50);
@@ -189,7 +193,7 @@ int main(int argc, char *argv[])
   TH1F *reco_E_anticut = new TH1F("reco_E(anti-cut)","Reconstructed Jet Energy(anti-cut)",100,0,50);
   TH1F *reco_nconst_anticut = new TH1F("reco_nconst(anti-cut)","Reconstructed Jet N Component(anti-cut)",20,0,20);
   TH1F *reco_P_anticut = new TH1F("reco_P(anti-cut)","Reconstructed Jet Momentum(anti-cut)",100,0,50);
-  TH1F *RjoTj_anticut = new TH1F("PRecoJet_over_PTrueJet_anticut", "P_{Jet}^{True} - P_{Jet}^{Reco} / P^{True}_{Jet} (anti-cut) ",80,-0.4,0.4);
+  TH1F *RjoTj_anticut = new TH1F("PRecoJet_over_PTrueJet_anticut", "P_{Jet}^{True} - P_{Jet}^{Reco} / P^{True}_{Jet} (anti-cut) ",100,-0.25,0.25);
   TH1F *nconst_diff_anticut = new TH1F("nconst_diff_anticut","Truth - Reco No. Constituents",20,0,20);
   TH1F *comp_eta_anticut = new TH1F("comp_eta_anticut","Jet Component #eta (Anti-Cut)",40,-4,4);
   TH1F *comp_pt_anticut = new TH1F("comp_pt_anticut","Jet Component p_{T} (Anti-Cut)",500,0,50);
@@ -197,7 +201,8 @@ int main(int argc, char *argv[])
   TH1F *Q2_anticut = new TH1F("Q2_anticut","Q^{2} (anticut)",100,0,500);
   //TH1I * PID = new TH1I("PID_Histo", "PID",1000,-500,500);
   TH2F *momentum_response = new TH2F("momentum_response","Charged Jet Momentum Response",100,0,50,100,0,50);
-  
+  momentum_response->GetXaxis()->SetTitle("P_{Jet}^{Reco} [GeV/c]");
+  momentum_response->GetYaxis()->SetTitle("P_{Jet}^{Truth,Ch} [GeV/c]");
   TH2F *P_Component_vs_JetEta_anticut = new TH2F("comp_p_vs_jetEta_anticut","Component P vs. #eta^{Jet}_{Truth} (anti-cut)",25,-5,5,40,0,20);
   TH2F *Pt_Component_vs_JetEta_anticut = new TH2F("comp_pT_vs_jetEta_anticut","Component p_{T} vs. #eta^{Jet}_{Truth} (anticut)",25,-5,5,40,0,20);
   TH1F ** anticut_momentum_in_eta_bins = new TH1F*[nEta_bins];
@@ -310,8 +315,7 @@ int main(int argc, char *argv[])
       //cut_to_study = (abs(dP_P) < max_dP_P);
       //cut_to_study = (NComponent[n] >= min_comp);
       //cut_to_study =( (NComponent[n] > min_comp) && (E[n] > minE) );
-      //cut_to_study = ((gNComponent[n] - NComponent[n] - n_neutral) < max_miss_const);
-      //cut_to_study = ((gNComponent[n] - NComponent[n]) < max_miss_const);
+      cut_to_study = ((gNComponent[n] - NComponent[n] - n_neutral) < max_miss_const);
       //cut_to_study = pt_const_cut;
       //cut_to_study = maxed_neutrals;
 
