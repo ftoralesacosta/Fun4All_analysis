@@ -33,6 +33,19 @@ float calc_Q_square(float inE, ROOT::Math::PtEtaPhiEVector v)
 {
   return 2.*inE*v.E()*(1-TMath::Abs(TMath::Cos(v.Theta())));
 }
+float constituent_pT_threshold(float eta)
+{
+  // Minimum pT for B = 1.5 T (https://physdiv.jlab.org/DetectorMatrix/):
+  
+  float eta_bins[6] = {3.0,2.5,2.0,1.5,1.0,0.0};
+  float pT_threshold_array[5] = {0.1,0.13,0.70,0.15,0.2};
+  float pT_threshold = 0;
+  for (int i = 0; i < 5; i++)
+    if ( (eta < eta_bins[i])&&(eta > eta_bins[i+1]) )
+      pT_threshold = pT_threshold_array[i];
+
+  return pT_threshold;
+}
 using namespace std;
 int main(int argc, char *argv[])
 {
@@ -225,8 +238,6 @@ int main(int argc, char *argv[])
   //float max_DeltaR = 0.1; //reco-truth match
   //float max_dE_E = 0.03;
   int min_comp = 4;
-  float min_comp_pt = 0.15; // 20MeV for 1.4 T field, 95MeV for 3 T field. 60MeV safety in 1.4T field.
-  float min_comp_pt_central = 0.2; //|eta| < 1 
   float minE = 4.0;
   float jet_cut_counter[3] = {0};
   float max_miss_const = 1;
@@ -276,12 +287,7 @@ int main(int argc, char *argv[])
 	eta_const_cut = (  ( (abs(gComponent_Eta[n][i]) > 1.06) && (abs(gComponent_Eta[n][i]) < 1.13) )
 			    || (abs(gComponent_Eta[n][i]) > 3.5)  );
 
-	if (abs(gComponent_Eta[n][i]) > 1.0)
-	  pt_const_cut = (gComponent_Pt[n][i] < min_comp_pt);
-	
-	else
-	  pt_const_cut = (gComponent_Pt[n][i] > min_comp_pt_central);
-
+	pt_const_cut = (gComponent_Pt[n][i] < constituent_pT_threshold(gComponent_Eta[n][i]));
 
 	if (eta_const_cut || pt_const_cut) break; //skip jets that fail (general cut)
 	if (gComponent_Charge[n][i] == 0)
@@ -381,8 +387,8 @@ int main(int argc, char *argv[])
 	}
       
       jet_cut_counter[0]+=1.; //Jets that only pass continue statements
-      Float_t True_DeltaPhi = TMath::Abs(TVector2::Phi_mpi_pi(electron_gPhi - gPhi[n]));
-      Float_t Reco_DeltaPhi = TMath::Abs(TVector2::Phi_mpi_pi(electron_gPhi - Phi[n]));
+      Float_t True_DeltaPhi = TMath::Abs(TVector2::Phi_mpi_pi(gLorentz.Phi() - electron_gPhi - TMath::Pi()));
+      Float_t Reco_DeltaPhi = TMath::Abs(TVector2::Phi_mpi_pi(Lorentz.Phi() - electron_gPhi - TMath::Pi()));
       dPhiTj->Fill(True_DeltaPhi);
       dPhiRj->Fill(Reco_DeltaPhi);
       dEtaTj->Fill(electron_gEta-gEta[n]);
@@ -517,4 +523,3 @@ int main(int argc, char *argv[])
   fout->Close();
 
 }
-
