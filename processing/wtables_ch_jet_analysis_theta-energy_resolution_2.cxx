@@ -56,7 +56,7 @@ int main(int argc, char ** argv) {
 	bool keep_plots = false;
 	bool N_Missing_Cut = true;
 	int N_Missing_Max = 1;
-	bool plot_mrad = true;
+	bool plot_mrad = false;
 	string rad_mrad_string = "[rad]";
 	if (plot_mrad)
 	  rad_mrad_string = "[mrad]";
@@ -214,8 +214,12 @@ int main(int argc, char ** argv) {
 			if(use_widths){
 			  h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),";dP/P;Counts",n_dpp_bins,left_edge,right_edge);
 
+			  h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),";dP/P;Counts",40,
+							  approx_mean_dpp[et][p]-approx_sig_dpp_3_0[et][p],approx_mean_dpp[et][p]+approx_sig_dpp_3_0[et][p]);
+
 				h1_dth_p_et_bins[et][p] = new TH1F(Form("h1_dth_p_et_bins_%i_%i",et,p),";d#theta [rad];Counts",40,
 							  approx_mean_dth[et][p]-approx_sig_dth_3_0[et][p],approx_mean_dth[et][p]+approx_sig_dth_3_0[et][p]);
+
 				h1_dph_p_et_bins[et][p] = new TH1F(Form("h1_dph_p_et_bins_%i_%i",et,p),";d#phi [rad];Counts",40,
 							  approx_mean_dph[et][p]-approx_sig_dph_3_0[et][p],approx_mean_dph[et][p]+approx_sig_dph_3_0[et][p]);
 			}
@@ -381,27 +385,25 @@ int main(int argc, char ** argv) {
 		for(int p = 0 ; p < size_mom_bin-1 ; p++){
 		  if(use_widths){
 
-		    //Double Gauss Fit
-		    double par[6];
-		    TF1 *G1 = new TF1 (Form("G1_%i_%i",et,p),"landau",-0.2,0.1);
-		    TF1 *G2 = new TF1 (Form("G2_%i_%i",et,p),"gaus",approx_mean_dpp[et][p]-approx_sig_dpp_3_0[et][p],
-				       approx_mean_dpp[et][p]+approx_sig_dpp_3_0[et][p]);
+		      f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",approx_mean_dpp[et][p]-approx_sig_dpp_1_1[et][p],
+				       approx_mean_dpp[et][p]+approx_sig_dpp_1_1[et][p]);
+		      f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",approx_mean_dth[et][p]-approx_sig_dth_1_1[et][p],
+				       approx_mean_dth[et][p]+approx_sig_dth_1_1[et][p]);
+		      f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",approx_mean_dph[et][p]-approx_sig_dph_1_1[et][p],
+				       approx_mean_dph[et][p]+approx_sig_dph_1_1[et][p]);
 		    
-		    h1_dpp_p_et_bins[et][p]->Fit(G1,"R");
-		    h1_dpp_p_et_bins[et][p]->Fit(G2,"R");
+//f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus(0)+gaus(3)",
+//					approx_mean_dpp[et][p]-approx_sig_dpp_3_0[et][p],approx_mean_dpp[et][p]+approx_sig_dpp_3_0[et][p]);
 		    
-		    G1->GetParameters(&par[0]);
-		    G2->GetParameters(&par[3]);
-		    
-		    f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus(0)+gaus(3)",
-						approx_mean_dpp[et][p]-approx_sig_dpp_3_0[et][p],approx_mean_dpp[et][p]+approx_sig_dpp_3_0[et][p]);
+		    //f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus(0)+gaus(3)",
+						//approx_mean_dpp[et][p]-approx_sig_dpp_3_0[et][p],approx_mean_dpp[et][p]+approx_sig_dpp_3_0[et][p]);
 
-		    f_gaus_dpp[et][p]->SetParameters(par);
+		    //f_gaus_dpp[et][p]->SetParameters(par);
 		    
-		    f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",
-						approx_mean_dth[et][p]-approx_sig_dth_1_1[et][p],approx_mean_dth[et][p]+approx_sig_dth_1_1[et][p]);
-		    f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",
-						approx_mean_dph[et][p]-approx_sig_dph_1_1[et][p],approx_mean_dph[et][p]+approx_sig_dph_1_1[et][p]);
+		   //f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",
+					//approx_mean_dth[et][p]-approx_sig_dth_1_1[et][p],approx_mean_dth[et][p]+approx_sig_dth_1_1[et][p]);
+		    //f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",
+					//	approx_mean_dph[et][p]-approx_sig_dph_1_1[et][p],approx_mean_dph[et][p]+approx_sig_dph_1_1[et][p]);
 		  }
 		  else{
 
@@ -412,6 +414,7 @@ int main(int argc, char ** argv) {
 
 		    if (N_Missing_Cut){
 		      //f_gaus_dpp[et][p] = double_gaus(h1_dpp_p_et_bins[et][p],-0.02,0.02,-0.2,0.01,TString("dpp"),et,p); //dphi cut
+			    
 		      f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.01,0.01);
 		      f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.0008,0.0008);
 		      f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.002,0.002);
@@ -822,5 +825,5 @@ TGraphErrors ** Th1_to_TGraph(TH1F ** h1_array, int array_size)
     g->SetLineColor(root_colors[i]);
     g->SetMarkerStyle(8);
     g->SetMarkerColor(root_colors[i]);
-  }
+ }
 }
