@@ -412,19 +412,19 @@ int main(int argc, char ** argv) {
       }
 
       else if (N_Missing_Cut){
-          f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.01,0.01);
-          f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.0008,0.0008);
-          f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.002,0.002);
-          f_gaus_des[et][p] = new TF1(Form("f_gaus_des_%i_%i",et,p),"gaus",0.5,1.0);
-        }
+          
+        f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.01,0.01);
+        f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.0008,0.0008);
+        f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.002,0.002);
+        f_gaus_des[et][p] = new TF1(Form("f_gaus_des_%i_%i",et,p),"gaus",0.5,1.0);
+      }
 
-        else{//n_miss
-          f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.02,0.02);
-          f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.03,0.03);
-          f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.03,0.03);
-          f_gaus_des[et][p] = new TF1(Form("f_gaus_des_%i_%i",et,p),"gaus",0.5,1.0);
-        }
-
+      else{//n_miss
+        f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.02,0.02);
+        f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.03,0.03);
+        f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.03,0.03);
+        f_gaus_des[et][p] = new TF1(Form("f_gaus_des_%i_%i",et,p),"gaus",0.5,1.0);
+      }
     }//p
   }//et
 
