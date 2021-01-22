@@ -56,7 +56,7 @@ int main(int argc, char ** argv) {
   bool keep_plots = false;
   bool N_Missing_Cut = true;
   int N_Missing_Max = 1;
-  bool plot_mrad = false;
+  bool plot_mrad = true;
   string rad_mrad_string = "[rad]";
   if (plot_mrad)
     rad_mrad_string = "[mrad]";
@@ -122,9 +122,12 @@ int main(int argc, char ** argv) {
   int nEntries = T -> GetEntries();
   const int MaxNumJets = 20;
   const int kMaxConstituents = 100;
+
   array<Float_t, MaxNumJets> E,Eta,Phi,Pt,gE,gEta,gPhi,gPt;
   array<Int_t, MaxNumJets> NComponent, gNComponent;
+
   Float_t electron_gE,electron_gEta,electron_gPhi,electron_gPt;
+
   array<array<Float_t, kMaxConstituents >, MaxNumJets > gComponent_Eta,gComponent_PID,
     gComponent_Pt,gComponent_Phi,gComponent_E, gComponent_Charge;
 
@@ -317,7 +320,7 @@ int main(int argc, char ** argv) {
             || (abs(gComponent_Eta[n][i]) > 3.5)  );
 
         pt_const_cut = (gComponent_Pt[n][i] < constituent_pT_threshold(gComponent_Eta[n][i]));
-
+        cout<<"constituent eta = "<<gComponent_Eta[n][i]<<"threshold = "<<constituent_pT_threshold(gComponent_Eta[n][i])<<endl;
         if (eta_const_cut || pt_const_cut) break; //skip jets that fail (general cut)
 
         if (gComponent_Charge[n][i] == 0)
@@ -360,8 +363,6 @@ int main(int argc, char ** argv) {
             }	
             if ((gLorentz.E() > mom_bin[p]) && (gLorentz.E() <= mom_bin[p+1]))
               h1_des_p_et_bins[et][p] -> Fill( E_gE );
-            //if (gE[n] > mom_bin[p] && gE[n] <= mom_bin[p+1])//P != E, but binning is close enough:w
-            //h1_des_p_et_bins[et][p] -> Fill( E_gE );
           }
         }
       }
@@ -487,7 +488,7 @@ int main(int argc, char ** argv) {
       h1_dph_p_et_bins[et][p] -> Draw();	h1_dph_p_et_bins[et][p] -> Fit(Form("f_gaus_dph_%i_%i",et,p),"RQ");
       width_dph[et][p] = f_gaus_dph[et][p] -> GetParameter(2)*rad_mrad;
       error_dph[et][p] = (f_gaus_dph[et][p] -> GetParError(2)*rad_mrad);
-      mean_dph[et][p] = f_gaus_dph[et][p] -> GetParameter(1);
+      mean_dph[et][p] = f_gaus_dph[et][p] -> GetParameter(1)*rad_mrad;
 
       // Energy Scale resolution
       c_fits_es[et] -> cd(p+1);
