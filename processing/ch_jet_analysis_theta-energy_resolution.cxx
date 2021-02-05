@@ -199,9 +199,9 @@ int main(int argc, char ** argv) {
 	  right_edge = 0.05;
 	}
 	else{
-          n_dpp_bins = 60;
+          n_dpp_bins = 40;
           left_edge = -0.4;
-	  right_edge = 0.8;
+	  right_edge = 0.4;
 	  // left_edge = -0.1;
 	  // right_edge = 1.0;
 	}
@@ -230,12 +230,12 @@ int main(int argc, char ** argv) {
 							       ";d#theta [rad];Counts",50,-0.005,0.005);
 			    
 			    h1_dph_p_et_bins[et][p] = new TH1F(Form("h1_dph_p_et_bins_%i_%i",et,p),
-							     ";d#phi [rad];Counts"  ,40,-0.01  ,0.01  );
+							     ";d#phi [rad];Counts"  ,20,-0.02  ,0.02  );
 			}
 			  else {
 
 			    h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),
-							       ";dP/P;Counts",80,left_edge,right_edge  );
+							     ";dP/P;Counts",80,-0.4,0.4  );
 			    
 			    h1_dth_p_et_bins[et][p] = new TH1F(Form("h1_dth_p_et_bins_%i_%i",et,p),
 							       ";d#theta [rad];Counts",40,-0.2,0.2);
@@ -412,15 +412,15 @@ int main(int argc, char ** argv) {
 
 		    if (N_Missing_Cut){
 		      //f_gaus_dpp[et][p] = double_gaus(h1_dpp_p_et_bins[et][p],-0.02,0.02,-0.2,0.01,TString("dpp"),et,p); //dphi cut
-		      f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.01,0.01);
+		      f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.02,0.02);
 		      f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.0008,0.0008);
-		      f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.002,0.002);
+		      f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.005,0.005);
 		      // f_gaus_dth[et][p] = double_gaus(h1_dth_p_et_bins[et][p],-0.002,0.002,-0.005,0.005,TString("dth"),et,p);
 		      // f_gaus_dph[et][p] = double_gaus(h1_dph_p_et_bins[et][p],-0.015,0.015,-0.08,0.08,TString("dph"),et,p);
 		      //f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.02,0.02);
 		    }
 		    
-		    else{//n_miss
+		    else{
 		      f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),
 		      "[0]*TMath::Power(([1]/[2]),(x/[2]))*(TMath::Exp(-([1]/[2])))/TMath::Gamma((x/[2])+1.)", 0., 0.4);
 		      f_gaus_dpp[et][p]->SetParameters(1,1,1);
@@ -429,17 +429,9 @@ int main(int argc, char ** argv) {
 		      //f_gaus_dth[et][p] = double_gaus(h1_dth_p_et_bins[et][p],-0.02,0.02,-0.2,0.2,TString("dth"),et,p);
 		      //f_gaus_dph[et][p] = double_gaus(h1_dph_p_et_bins[et][p],-0.02,0.02,-0.2,0.2,TString("dph"),et,p);
 		      f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.02,0.02);
+		      f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.05,0.05);
+		      f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.05,0.05);
 
-		      if ((et == 0) || (et == size_eta_bin-1)){
-			f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.055,0.055);
-			f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.055,0.055);
-		      }
-		      
-		      else
-			{
-			  f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.03,0.03);
-			  f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.03,0.03);
-			}
 		    }
  // if (eta_bin[et] < 1){
 		    //   //f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.3,0.1);
