@@ -149,8 +149,8 @@ int main(int argc, char *argv[])
   TH1F * emTj = new TH1F("Eelectron_minus_PTrueJet", "E_{e}^{True} - E^{True}_{Jet} (|#eta^{Jet}|<0.7)",100,-20,30);
   TH1F * emRj = new TH1F("Eelectron_minus_ERecoJet", "E_{e}^{True} - E^{Reco}_{Jet} (|#eta^{Jet}|<0.7)",100,-20,30);
   //Detector Coordinate Histos
-  TH1F * dPhiTj = new TH1F("dPhi_e_TrueJet", "|#Delta#varphi| (#varphi_{e} - #varphi^{True}_{Jet}) ", 32,0,M_PI);
-  TH1F * dPhiRj = new TH1F("dPhi_e_RecoJet", "|#Delta#varphi| #varphi_{e} - #varphi(Jet^{Reco}_{Jet}) ", 32,0,M_PI);
+  TH1F * dPhiTj = new TH1F("dPhi_e_TrueJet", "|#Delta#varphi| (#varphi_{e} - #varphi^{True}_{Jet}) ", 128,0,M_PI);
+  TH1F * dPhiRj = new TH1F("dPhi_e_RecoJet", "|#Delta#varphi| #varphi_{e} - #varphi(Jet^{Reco}_{Jet}) ", 128,0,M_PI);
   TH1F * dEtaTj = new TH1F("dEta_e_TrueJet", "|#Delta#eta| (#eta_{e} - #eta^{True}_{Jet})", 80,-10,10);
   TH1F * dEtaRj = new TH1F("dEta_e_RecoJet", "|#Delta#eta| (#eta_{e} - #eta^{Reco}_{Jet})", 80,-10,10);
   
@@ -214,8 +214,8 @@ int main(int argc, char *argv[])
   TH1F *Q2_anticut = new TH1F("Q2_anticut","Q^{2} (anticut)",100,0,500);
   //TH1I * PID = new TH1I("PID_Histo", "PID",1000,-500,500);
   TH2F *momentum_response = new TH2F("momentum_response","Charged Jet Momentum Response",100,0,50,100,0,50);
-  momentum_response->GetXaxis()->SetTitle("P_{Jet}^{Reco} [GeV/c]");
-  momentum_response->GetYaxis()->SetTitle("P_{Jet}^{Truth,Ch} [GeV/c]");
+  momentum_response->GetXaxis()->SetTitle("p_{Jet}^{Reco} [GeV/c]");
+  momentum_response->GetYaxis()->SetTitle("p_{Jet}^{Truth,Ch} [GeV/c]");
   TH2F *P_Component_vs_JetEta_anticut = new TH2F("comp_p_vs_jetEta_anticut","Component P vs. #eta^{Jet}_{Truth} (anti-cut)",25,-5,5,40,0,20);
   TH2F *Pt_Component_vs_JetEta_anticut = new TH2F("comp_pT_vs_jetEta_anticut","Component p_{T} vs. #eta^{Jet}_{Truth} (anticut)",25,-5,5,40,0,20);
   TH1F ** anticut_momentum_in_eta_bins = new TH1F*[nEta_bins];
@@ -233,6 +233,7 @@ int main(int argc, char *argv[])
   TH1F *truth_E_anticut = new TH1F("anticut_truth_E","Truth Jet Energy (anticut)",100,0,50);
   TH1F *truth_P_anticut = new TH1F("anticut_truth_P","Truth Jet Momentum (anticut)",100,0,50);
 
+  TH1F *truth_FF = new TH1F("fragmentation_fuction","Truth Jet Charged Fragmentation Function",12,0,1);
 
   //--------------------Cut Parameters--------------------//
   //float max_DeltaR = 0.1; //reco-truth match
@@ -340,7 +341,8 @@ int main(int argc, char *argv[])
 	  RjoTj->Fill(dP_P);
 	  nconst_diff->Fill(gNComponent[n] - NComponent[n]);
 	  Q2->Fill(Q_square);
-	  for (int i = 0; i < NComponent[n]; i++){
+    float truth_z = 0.;
+	  for (int i = 0; i < gNComponent[n]; i++){
 	    if (gComponent_Charge[n][i] == 0) continue;
 	    comp_eta->Fill(gComponent_Eta[n][i]);
 	    comp_pid->Fill(gComponent_PID[n][i]);
@@ -348,6 +350,8 @@ int main(int argc, char *argv[])
 	    ROOT::Math::PtEtaPhiEVector gConstLorentz(gComponent_Pt[n][i],gComponent_Eta[n][i],gComponent_Phi[n][i],gComponent_E[n][i]);
 	    P_Component_vs_JetEta->Fill(gEta[n],gConstLorentz.P());
 	    Pt_Component_vs_JetEta->Fill(gEta[n],gComponent_Pt[n][i]);
+      truth_z = gConstLorentz.P()/gLorentz.P();
+      truth_FF->Fill(truth_z);
 	  }
 	  jet_cut_counter[1]+=1.; //increment
 	  for (int ieta = 0; ieta < nEta_bins; ieta++)
@@ -371,7 +375,7 @@ int main(int argc, char *argv[])
 	  RjoTj_anticut->Fill(dP_P);
 	  nconst_diff_anticut->Fill(gNComponent[n] - NComponent[n]);
 	  Q2_anticut->Fill(Q_square);    
-	  for (int i = 0; i < NComponent[n]; i++){
+	  for (int i = 0; i < gNComponent[n]; i++){
 	    if (gComponent_Charge[n][i] == 0) continue;
 	    comp_eta_anticut->Fill(gComponent_Eta[n][i]);
 	    comp_pid_anticut->Fill(gComponent_PID[n][i]);
@@ -439,7 +443,7 @@ int main(int argc, char *argv[])
   truth_phi->Write();
 
   reco_nconst->Write();
-  RjoTj->GetXaxis()->SetTitle("dP/P");
+  RjoTj->GetXaxis()->SetTitle("dp/p");
   RjoTj->Write();
   nconst_diff->Write();
   comp_eta->Write();
@@ -450,7 +454,7 @@ int main(int argc, char *argv[])
   Pt_Component_vs_JetEta->Write();
   n_neutrals_vs_dP_P->Write();
   n_missed_vs_dP_P->SetYTitle("No. Missed Jet Constituents");
-  n_missed_vs_dP_P->SetXTitle("dP/P");
+  n_missed_vs_dP_P->SetXTitle("dp/p");
   n_missed_vs_dP_P->Write();
   n_neutrals->Write();
   n_charged->Write();
@@ -513,6 +517,7 @@ int main(int argc, char *argv[])
 
   Q2->Write();
   Q2_anticut->Write();
+  truth_FF->Write();
   // H_dR->Write();
   // H_NExtra_Matches->Write();
 
