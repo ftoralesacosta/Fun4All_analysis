@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cmath>
 #include <iostream>
+//#include <filesystem>
 
 // Root includes
 #include <TROOT.h>
@@ -23,13 +24,14 @@
 #include <TTreeReaderValue.h>
 #include <TTreeReaderArray.h>
 
+//namespace fs = std::filesystem;
 using namespace std;
 
 // Forward-declaring functions
 void prettyTH1F( TH1F * h1 , int color , int marker , float min , float max );
 void better_yaxis(TH1F ** h1_array,int array_size);
 TF1 * double_gaus(TH1F *h1,float min1, float max1, float min2, float max2,TString type ,int et, int p);
-float constituent_pT_threshold(float eta, float B_Field);
+float constituent_pT_threshold(float eta);
 TGraphErrors ** Th1_to_TGraph(TH1F ** h1_array, int array_size);
 // ============================================================================================================================================
 int main(int argc, char ** argv) {
@@ -40,28 +42,32 @@ int main(int argc, char ** argv) {
   TApplication *myapp = new TApplication("myapp",0,0);#
 #endif
 
-    if(argc < 6){
+    if(argc < 5){
       cout << "Run this code as:\n\033[1;32m./analysis_momentum_resolution A B C D filename.root\033[0m\n";
       cout << "where:\nA = 1 -> Widths from table will be used\n  = 2 -> Widths from table \033[1;31mwon't\033[0m be used\n";
       cout << "B = 1 -> Table will be updated\n  = 2 -> Table \033[1;31mwon't\033[0m be updated\n";
       cout << "C = 1 -> Run code and quit\n  = 2 -> Run code and show plots\n";
-      cout << "D = 0 -> Don't Apply any N_Missing Cut\n 1 -> Apply N_Missing < 1\n  = 2 -> apply N_Missing >= 1 Selection\n";
-      cout << "E = B Field, either 1.4 or 3.0 T at this time. DONT TRY ANOTHER B FIELD \n";
+      cout << "D = 1 -> Apply N_Missing < 1\n  = 2 -> Don't apply N_Missing Selection\n";
       exit(0);
     }
 
   bool use_widths = true;
   bool update_tab = false;
   bool keep_plots = false;
-  bool do_const_cut = true;
-  bool N_Missing_Cut = false;
+  bool N_Missing_Cut = true;
   int N_Missing_Max = 1;
   bool plot_mrad = true;
   string rad_mrad_string = "[rad]";
   if (plot_mrad)
     rad_mrad_string = "[mrad]";
 
-  cout << "\033[1;31m********************************************************************\nUSEFUL INFO:\033[0m\nWill be loading data from file: '" << argv[6] << "' assumed to be in directory 'data'" << endl;
+//  if (!fs::is_directory("../data"  ) || !fs::exists("../data"  )) fs::create_directory("../data"  ); // Create directory if it does not exist
+//  if (!fs::is_directory("tables"   ) || !fs::exists("tables"   )) fs::create_directory("tables"   );
+//  if (!fs::is_directory("../output") || !fs::exists("../output")) fs::create_directory("../output");
+//  if (!fs::is_directory("fits"     ) || !fs::exists("fits"     )) fs::create_directory("fits"     );
+//  if (!fs::is_directory("results"  ) || !fs::exists("results"  )) fs::create_directory("results"  );
+
+  cout << "\033[1;31m********************************************************************\nUSEFUL INFO:\033[0m\nWill be loading data from file: '" << argv[5] << "' assumed to be in directory 'data'" << endl;
 
   if     (atoi(argv[1])==1){use_widths = true ;	cout << "Will be using widths from table\n" ;}
   else if(atoi(argv[1])==2){use_widths = false;	cout << "Won't be using widths from table\n";}
@@ -75,13 +81,10 @@ int main(int argc, char ** argv) {
   else if(atoi(argv[3])==2){keep_plots = true ;	cout << "Will run and show the plots\n" ; }
   else{cout << "Something wrong with your election of input parameter 'C'. Bailing out!\n"; exit(0);}
 
-  if(atoi(argv[4])==0){do_const_cut = false; cout << " Will NOT apply any N Missing Const. Cut\n";}
-  else if(atoi(argv[4])==1){N_Missing_Cut = true ;   cout << "Will apply N Missing Const. < 1 Cut\n" ;}
-  else if(atoi(argv[4])==2){N_Missing_Cut = false;   cout << "Will apply N Missing Const. >= 1 Cut\n";}
+  if     (atoi(argv[4])==1){N_Missing_Cut = true ;   cout << "Will apply N Missing Const. Cut\n" ;}
+  else if(atoi(argv[4])==2){N_Missing_Cut = false;   cout << "Will NOT apply N Missing Const. Cut\n";}
   else{cout << "Something wrong with your election of input parameter 'D'. Bailing out!\n"; exit(0);}
-  float B_Field = atof(argv[5]);
-  printf("B Field = %f\n",B_Field);
-  if ((B_Field != float(3.0)) && (B_Field != float(1.4))) {printf("B Field = %f not valid. Only 1.4 or 3.0 Tesla!\n",B_Field); exit(0);}
+
 
   // -------------------------
   // Binning
@@ -96,14 +99,12 @@ int main(int argc, char ** argv) {
   TVectorT<double> TVT_mom_bin(size_mom_bin);	for(int i = 0 ; i < size_mom_bin ; i++) TVT_mom_bin[i] = mom_bin[i];
   // -------------------------
   // useful strings
-  string raw_fname = argv[6];
+  string raw_fname = argv[5];
   TString infile = "../data/" + raw_fname;
   raw_fname.resize(raw_fname.size()-5);
-  TString outfile = "../output/new_Missing_const_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
-  if (!do_const_cut)
-    outfile = "../output/NoCuts_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
-  else if (N_Missing_Cut)
-    TString outfile = "../output/new_No_Missing_const_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
+  TString outfile = "../output/No_Missing_const_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
+  if (!N_Missing_Cut)
+    outfile = "../output/Missing_const_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
   TString tab_name = "tables/tab_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".txt";
   TString out_pdf = "output_fits_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".pdf";
   TString out_pdf2 = "results/results_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".pdf";
@@ -130,19 +131,12 @@ int main(int argc, char ** argv) {
   array<array<Float_t, kMaxConstituents >, MaxNumJets > gComponent_Eta,gComponent_PID,
     gComponent_Pt,gComponent_Phi,gComponent_E, gComponent_Charge;
 
-  array<array<Float_t, kMaxConstituents >, MaxNumJets > Component_Eta,Component_Phi,Component_P,Component_Pt;
-
   T -> SetBranchAddress("njets",&njets);
   T -> SetBranchAddress("e",&E);
   T -> SetBranchAddress("eta",&Eta);
   T -> SetBranchAddress("phi",&Phi);
   T -> SetBranchAddress("pt",&Pt);
   T -> SetBranchAddress("nComponent",&NComponent);
-
-  T -> SetBranchAddress("Constituent_recoEta", Component_Eta.data());
-  T -> SetBranchAddress("Constituent_recoPt",Component_Pt.data());
-  T -> SetBranchAddress("Constituent_recoP",Component_P.data());
-  T -> SetBranchAddress("Constituent_recoPhi",Component_Phi.data());
 
   T -> SetBranchAddress("matched_truthE",&gE);
   T -> SetBranchAddress("matched_truthEta",&gEta);
@@ -237,7 +231,7 @@ int main(int argc, char ** argv) {
 
       else if (N_Missing_Cut){
         h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),
-            ";dP/P;Counts",n_dpp_bins,-0.05,0.05);
+            ";dP/P;Counts",n_dpp_bins,-.05,0.05);
         h1_dth_p_et_bins[et][p] = new TH1F(Form("h1_dth_p_et_bins_%i_%i",et,p),
             ";d#theta [rad];Counts",n_dth_bins,-0.005,0.005);
         h1_dph_p_et_bins[et][p] = new TH1F(Form("h1_dph_p_et_bins_%i_%i",et,p),
@@ -293,7 +287,7 @@ int main(int argc, char ** argv) {
     h1_dth_v_et_p_bins[p] = new TH1F(Form("h1_dth_v_et_p_bins_%i",p),Form(";#eta;d#theta %s",rad_mrad_string.c_str()),size_eta_bin-1,eta_bin);
     prettyTH1F( h1_dth_v_et_p_bins[p] , p , 20 , 0.001 , 1.  );
 
-    h1_dph_v_et_p_bins[p] = new TH1F(Form("h1_dph_v_et_p_bins_%i",p),Form(";#eta;d#phi %s",rad_mrad_string.c_str()),size_eta_bin-1,eta_bin);
+    h1_dph_v_et_p_bins[p] = new TH1F(Form("h1_dph_v_et_p_bins_%i",p),Form(";#eta;d#phi [rad]",rad_mrad_string.c_str()),size_eta_bin-1,eta_bin);
     prettyTH1F( h1_dph_v_et_p_bins[p] , p , 20 , 0.001 , 1000. );
 
     h1_des_v_et_p_bins[p] = new TH1F(Form("h1_des_v_et_p_bins_%i",p),";#eta;d(E_{Reco}/E_{True})",size_eta_bin-1,eta_bin);
@@ -320,40 +314,31 @@ int main(int argc, char ** argv) {
       int n_ch = 0;
       int n_neutral_max = 1;
       bool maxed_neutrals = true;
-      for (int i = 0; i < NComponent[n]; i++){
+      for (int i = 0; i < gNComponent[n]; i++){
 
-        //eta_const_cut = (  ( (abs(gComponent_Eta[n][i]) > 1.06) && (abs(gComponent_Eta[n][i]) < 1.13) )
-        //    || (abs(gComponent_Eta[n][i]) > 3.5)  );
-        eta_const_cut = (  ( (abs(Component_Eta[n][i]) > 1.04) && (abs(Component_Eta[n][i]) < 1.15) )
-            || (abs(Component_Eta[n][i]) > 3.5)  );
+        eta_const_cut = (  ( (abs(gComponent_Eta[n][i]) > 1.06) && (abs(gComponent_Eta[n][i]) < 1.13) )
+            || (abs(gComponent_Eta[n][i]) > 3.5)  );
 
-        //pt_const_cut = (gComponent_Pt[n][i] < constituent_pT_threshold(gComponent_Eta[n][i],B_Field));
-        pt_const_cut = (Component_Pt[n][i] < constituent_pT_threshold(Component_Eta[n][i],B_Field));
-
+        pt_const_cut = (gComponent_Pt[n][i] < constituent_pT_threshold(gComponent_Eta[n][i]));
+        //cout<<"constituent eta = "<<gComponent_Eta[n][i]<<"threshold = "<<constituent_pT_threshold(gComponent_Eta[n][i])<<endl;
         if (eta_const_cut || pt_const_cut) break; //skip jets that fail (general cut)
-      }
 
-      for (int t = 0; t < gNComponent[n]; t++){
-        if (gComponent_Charge[n][t] == 0)
+        if (gComponent_Charge[n][i] == 0)
           n_neutral++;
         else
           n_ch++;
 
-        ROOT::Math::PtEtaPhiEVector gConstLorentz(gComponent_Pt[n][t],
-            gComponent_Eta[n][t],
-            gComponent_Phi[n][t],
-            gComponent_E[n][t]);
-        if (gComponent_Charge[n][t] == 0)
+        ROOT::Math::PtEtaPhiEVector gConstLorentz(gComponent_Pt[n][i],
+            gComponent_Eta[n][i],
+            gComponent_Phi[n][i],
+            gComponent_E[n][i]);
+        if (gComponent_Charge[n][i] == 0)
           gLorentz -= gConstLorentz;
       }
 
       int N_Missing = gNComponent[n] - NComponent[n] - n_neutral;
-      if (do_const_cut)
-      {
-        if ( (N_Missing_Cut) && (N_Missing >= N_Missing_Max) ) continue;
-        if ( (!N_Missing_Cut) && (N_Missing < N_Missing_Max) ) continue; //anticut of above
-      }
-
+      if ( (N_Missing_Cut) && (N_Missing >= N_Missing_Max) ) continue;
+      if ( (!N_Missing_Cut) && (N_Missing < N_Missing_Max) ) continue; //anticut of above
       float dth = Lorentz.Theta() - gLorentz.Theta();
       float geta = gLorentz.Eta();
       float P_reco = Lorentz.P();
@@ -787,19 +772,23 @@ TF1 * double_gaus(TH1F *h1,float min1, float max1, float min2, float max2,TStrin
   return double_gaus;
 }
 
-float constituent_pT_threshold(float eta, float B_Field)
+float constituent_pT_threshold(float eta)
 {
   // Minimum pT for B = 1.5 T (https://physdiv.jlab.org/DetectorMatrix/):
+
+  // 100 MeV/c for -3.0 < eta < -2.5
+  // 130 MeV/c for -2.5 < eta < -2.0
+  // 70 MeV/c for -2.0 < eta < -1.5
+  // 150 MeV/c for -1.5 < eta < -1.0
+  //200 MeV/c for -1.0 < eta < 1.0
+  // 150 MeV/c for 1.0 < eta < 1.5
+  // 70 MeV/c for 1.5 < eta < 2.0
+  // 130 MeV/c for 2.0 < eta < 2.5
+  // 100 MeV/c for 2.5 < eta < 3.0
 
   eta = abs(eta);
   float eta_bins[6] = {3.5,2.5,2.0,1.5,1.0,0.0};
   float pT_threshold_array[5] = {0.1,0.13,0.70,0.15,0.2}; 
-  if (B_Field == 3.0)
-  {
-    pT_threshold_array[0]=0.15; pT_threshold_array[1]=0.22;                                                                                                                 
-    pT_threshold_array[2] = 0.16; pT_threshold_array[3]=0.3;                                                                                                                
-    pT_threshold_array[4]=0.4;
-  }
   float pT_threshold = 0;
   for (int i = 0; i < 5; i++)
     if ( (eta < eta_bins[i])&&(eta > eta_bins[i+1]) )

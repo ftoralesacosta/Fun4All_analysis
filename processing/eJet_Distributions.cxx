@@ -33,12 +33,19 @@ float calc_Q_square(float inE, ROOT::Math::PtEtaPhiEVector v)
 {
   return 2.*inE*v.E()*(1-TMath::Abs(TMath::Cos(v.Theta())));
 }
-float constituent_pT_threshold(float eta)
+float constituent_pT_threshold(float eta,float B_field)
 {
   // Minimum pT for B = 1.5 T (https://physdiv.jlab.org/DetectorMatrix/):
-  
   float eta_bins[6] = {3.0,2.5,2.0,1.5,1.0,0.0};
   float pT_threshold_array[5] = {0.1,0.13,0.70,0.15,0.2};
+
+  if (B_field == 3.0)
+  {
+    //    printf("B Field = %f \n",B_field);
+    pT_threshold_array[0]=0.15; pT_threshold_array[1]=0.22; 
+    pT_threshold_array[2] = 0.16; pT_threshold_array[3]=0.3;
+    pT_threshold_array[4]=0.4;
+  }
   float pT_threshold = 0;
   for (int i = 0; i < 5; i++)
     if ( (eta < eta_bins[i])&&(eta > eta_bins[i+1]) )
@@ -49,14 +56,15 @@ float constituent_pT_threshold(float eta)
 using namespace std;
 int main(int argc, char *argv[])
 {
-  if (argc < 2) {
-    std::cout<<"Syntax: [Command] [File]"<<std::endl;
+  if (argc < 3) {
+    std::cout<<"Syntax: [Command] [File] [B Field]"<<std::endl;
     exit(EXIT_FAILURE);
   }
   //for (int iarg = 1; iarg < argc; iarg++) {
   int iarg = 1;
   TString root_file = (TString)argv[iarg];
   
+  float B_Field = atof(argv[2]);
   std::cout << "Opening: " << (TString)argv[iarg] << std::endl;
   
   TFile *file = TFile::Open(root_file);
@@ -87,13 +95,22 @@ int main(int argc, char *argv[])
   int nEntries = T -> GetEntries();
   const int MaxNumJets = 20;
   const int kMaxConstituents = 100;
-  array<Float_t, MaxNumJets> E,Eta,Phi,Pt,gE,gEta,gPhi,gPt,all_truthE;
-  array<Int_t, MaxNumJets> NComponent,gNComponent;
+
+  array<Float_t, MaxNumJets> E,Eta,Phi,Pt,gE,gEta,gPhi,gPt;
+  array<Float_t, MaxNumJets> all_truthE,all_truthP,all_truthPt,all_truthPhi,all_truthEta;
+  array<Int_t, MaxNumJets> NComponent,gNComponent, alltruth_NComponent;
+
   Float_t electron_gE,electron_gEta,electron_gPhi,electron_gPt;
+  Float_t electron_E,electron_Eta,electron_Phi,electron_Pt;
+
   array<array<Float_t, kMaxConstituents >, MaxNumJets > gComponent_Eta,gComponent_PID,
                          gComponent_Pt,gComponent_Phi,gComponent_E, gComponent_Charge;
+
   array<array<Float_t, kMaxConstituents >, MaxNumJets > Component_Eta,Component_PID,
-                         Component_Pt,Component_Phi,Component_E, Component_Charge;
+                         Component_Pt,Component_Phi,Component_P, Component_Charge;
+
+  array<array<Float_t, kMaxConstituents >, MaxNumJets > all_Component_Eta,all_Component_PID, all_Component_E,
+                         all_Component_Pt,all_Component_Phi,all_Component_P, all_Component_Charge;
   
   T -> SetBranchAddress("njets",&njets);
   T -> SetBranchAddress("e",&E);
@@ -102,14 +119,17 @@ int main(int argc, char *argv[])
   T -> SetBranchAddress("pt",&Pt);
   T -> SetBranchAddress("nComponent",&NComponent);
   
-  bool reco_const = false;
-  if (reco_const){
-    T -> SetBranchAddress("Constituent_truthEta", Component_Eta.data());
-    T -> SetBranchAddress("Constituent_truthPID",Component_PID.data());
-    T -> SetBranchAddress("Constituent_truthPt",Component_Pt.data());
-    T -> SetBranchAddress("Constituent_truthE",Component_E.data());
-    T -> SetBranchAddress("Constituent_truthPhi",Component_Phi.data());
-    T -> SetBranchAddress("Constituent_truthCharge",Component_Charge.data());
+  bool reco_branches = true;
+  if (reco_branches){
+    T -> SetBranchAddress("Constituent_recoEta", Component_Eta.data());
+    T -> SetBranchAddress("Constituent_recoPt",Component_Pt.data());
+    T -> SetBranchAddress("Constituent_recoP",Component_P.data());
+    T -> SetBranchAddress("Constituent_recoPhi",Component_Phi.data());
+
+    T -> SetBranchAddress("electron_recoE",&electron_E);
+    T -> SetBranchAddress("electron_recoEta",&electron_Eta);
+    T -> SetBranchAddress("electron_recoPhi",&electron_Phi);
+    T -> SetBranchAddress("electron_recoPt",&electron_Pt);
   }
 
   T -> SetBranchAddress("matched_truthE",&gE);
@@ -124,6 +144,19 @@ int main(int argc, char *argv[])
   T -> SetBranchAddress("matched_Constituent_truthE",gComponent_E.data());
   T -> SetBranchAddress("matched_Constituent_truthPhi",gComponent_Phi.data());
   T -> SetBranchAddress("matched_Constituent_truthCharge",gComponent_Charge.data());
+
+  T -> SetBranchAddress("all_truthE",&all_truthE);
+  T -> SetBranchAddress("all_truthEta",&all_truthEta);
+  T -> SetBranchAddress("all_truthPhi",&all_truthPhi);
+  T -> SetBranchAddress("all_truthPt",&all_truthPt);
+  T -> SetBranchAddress("all_truthNComponent",&alltruth_NComponent);
+
+  T -> SetBranchAddress("all_Constituent_truthEta", all_Component_Eta.data());
+  T -> SetBranchAddress("all_Constituent_truthPID",all_Component_PID.data());
+  T -> SetBranchAddress("all_Constituent_truthPt",all_Component_Pt.data());
+  T -> SetBranchAddress("all_Constituent_truthE",all_Component_E.data());
+  T -> SetBranchAddress("all_Constituent_truthPhi",all_Component_Phi.data());
+  T -> SetBranchAddress("all_Constituent_truthCharge",all_Component_Charge.data());
 
   T -> SetBranchAddress("electron_truthE",&electron_gE);
   T -> SetBranchAddress("electron_truthEta",&electron_gEta);
@@ -178,9 +211,12 @@ int main(int argc, char *argv[])
   TH1F *reco_nconst = new TH1F("reco_nconst","Reconstructed Jet N Component",20,0,20);
   TH1F *reco_P = new TH1F("reco_P","Reconstructed Jet Momentum",100,0,50);
   TH1F *nconst_diff = new TH1F("nconst_diff","Truth - Reco No. Constituents",20,0,20);
-  TH1F *comp_eta = new TH1F("comp_eta","Jet Component #eta",40,-4,4);
-  TH1F *comp_pid = new TH1F("comp_pid","Jet Component PID",1000,-500,500);
-  TH1F *comp_pt = new TH1F("comp_pt","Jet Component p_{T}",500,0,50);
+  TH1F *comp_eta = new TH1F("truth_comp_eta","Jet Truth Component #eta",80,-4,4);
+  TH1F *comp_pid = new TH1F("truth_comp_pid","Jet Truth Component PID",1000,-500,500);
+  TH1F *comp_pt = new TH1F("truth_comp_pt","Jet Truth Component p_{T}",500,0,50);
+
+  TH1F *reco_comp_eta = new TH1F("reco_comp_eta","Jet Reco Component #eta",240,-4,4);
+  TH1F *reco_comp_pt = new TH1F("reco_comp_pt","Jet Reco Component p_{T}",500,0,50);
   TH1F* Q2 = new TH1F("Q2","Q^{2}",100,0,500);
 
   TH2F *P_Component_vs_JetEta = new TH2F("comp_p_vs_jetEta","Component P vs. #eta^{Jet}_{Truth}",25,-5,5,40,0,20);
@@ -248,10 +284,14 @@ int main(int argc, char *argv[])
   TH1F *truth_E_anticut = new TH1F("anticut_truth_E","Truth Jet Energy (anticut)",100,0,50);
   TH1F *truth_P_anticut = new TH1F("anticut_truth_P","Truth Jet Momentum (anticut)",100,0,50);
 
-  TH1F *truth_FF = new TH1F("truth_fragmentation_fuction","Truth Jet Charged Fragmentation Function",12,0,1);
-  TH1F *truth_FF_zT = new TH1F("truth_fragmentation_fuction_zT","Truth Jet Charged Fragmentation Function (zT)",12,0,1);
-  TH1F *reco_FF = new TH1F("fragmentation_fuction","Reco Jet Charged Fragmentation Function",12,0,1);
-  TH1F *reco_FF_zT = new TH1F("fragmentation_fuction_zT","Reco Jet Charged Fragmentation Function (zT)",12,0,1);
+  TH1F *truth_FF = new TH1F("truth_fragmentation_fuction","Truth Jet Charged Fragmentation Function",24,0,1);
+  TH1F *truth_FF_zT = new TH1F("truth_fragmentation_fuction_zT","Truth Jet Charged Fragmentation Function (zT)",24,0,1);
+  TH1F *reco_FF = new TH1F("fragmentation_fuction","Reco Jet Charged Fragmentation Function",24,0,1);
+  TH1F *reco_FF_zT = new TH1F("fragmentation_fuction_zT","Reco Jet Charged Fragmentation Function (zT)",24,0,1);
+
+  TH1F *all_truth_FF = new TH1F("all_truth_fragmentation_fuction","Truth Jet Charged Fragmentation Function",24,0,1);
+  TH1F *all_truth_FF_zT = new TH1F("all_truth_fragmentation_fuction_zT","Truth Jet Charged Fragmentation Function (zT)",24,0,1);
+  TH1F *aT_edPhi = new TH1F("all_dPhi_e_TrueJet", "|#Delta#varphi| (#varphi_{e} - #varphi^{True}_{Jet}) ", 128,0,M_PI);
 
   TH1F *All_truth_E_histo = new TH1F("all_truth_E","all_truth Jet Energy",100,0,50);
   //--------------------Cut Parameters--------------------//
@@ -268,12 +308,34 @@ int main(int argc, char *argv[])
     T->GetEntry(ev);
     if (ev%10000==0) fprintf(stderr,"%d: Entry %lli out of %d\n",__LINE__,ev,nEntries);
     //if (ev == 500000) break;
+    for (int ia = 0; ia < nAlltruthjets; ia++){
+      if (isnan(all_truthE[ia])) continue;
+      
+      ROOT::Math::PtEtaPhiEVector ALorentz(all_truthPt[ia],all_truthEta[ia],all_truthPhi[ia],all_truthE[ia]);
+      for (int i = 0; i < alltruth_NComponent[ia]; i++)
+      {
+        ROOT::Math::PtEtaPhiEVector AConstLorentz(all_Component_Pt[ia][i],all_Component_Eta[ia][i],all_Component_Phi[ia][i],all_Component_E[ia][i]);
+        if (all_Component_Charge[ia][i] == 0)
+          ALorentz -= AConstLorentz;//done before jet histograms are filled
+      }
 
- for (int ia = 0; ia < nAlltruthjets; ia++){
-     if (isnan(all_truthE[ia])) continue;
-     All_truth_E_histo->Fill(all_truthE[ia]);
-     }
-    
+      if (alltruth_NComponent[ia] < 4) continue;
+      if (all_truthE[ia] < 4.0) continue;
+      for (int i = 0; i < alltruth_NComponent[i]; i++)
+      {
+        if (all_Component_Charge[ia][i] != 0)
+        {
+          ROOT::Math::PtEtaPhiEVector AConstLorentz(all_Component_Pt[ia][i],all_Component_Eta[ia][i],all_Component_Phi[ia][i],all_Component_E[ia][i]);
+          all_truth_FF->Fill(ALorentz.P()/AConstLorentz.P());
+          all_truth_FF_zT->Fill(ALorentz.Pt()/AConstLorentz.Pt());
+        }
+      }
+      All_truth_E_histo->Fill(ALorentz.E());
+      if (isnan(ALorentz.Phi())) continue;
+      Float_t AllTrue_DeltaPhi = TMath::Abs(TVector2::Phi_mpi_pi(ALorentz.Phi() - electron_gPhi - TMath::Pi()));
+      aT_edPhi->Fill(AllTrue_DeltaPhi);
+    }//all_truth_loop
+
     for (int n = 0; n < njets; ++n) {
 
       if (std::isnan(gE[n])) continue; //reco jet must have a truth match
@@ -313,8 +375,9 @@ int main(int argc, char *argv[])
         eta_const_cut = (  ( (abs(gComponent_Eta[n][i]) > 1.06) && (abs(gComponent_Eta[n][i]) < 1.13) )
             || (abs(gComponent_Eta[n][i]) > 3.5)  );
 
-        pt_const_cut = (gComponent_Pt[n][i] < constituent_pT_threshold(gComponent_Eta[n][i]));
+        pt_const_cut = (gComponent_Pt[n][i] < constituent_pT_threshold(gComponent_Eta[n][i],B_Field));
 
+        eta_const_cut =abs(gComponent_Eta[n][i]) > 3.5; //FIXME: Undo this later
         if (eta_const_cut || pt_const_cut) break; //skip jets that fail (general cut)
         if (gComponent_Charge[n][i] == 0)
           n_neutral++;
@@ -346,7 +409,7 @@ int main(int argc, char *argv[])
       //cut_to_study = (abs(dP_P) < max_dP_P);
       //cut_to_study = (NComponent[n] >= min_comp);
       //cut_to_study =( (NComponent[n] > min_comp) && (E[n] > minE) );
-      cut_to_study = ((gNComponent[n] - NComponent[n] - n_neutral) < max_miss_const);
+      //cut_to_study = ((gNComponent[n] - NComponent[n] - n_neutral) < max_miss_const);
       //cut_to_study = pt_const_cut;
       //cut_to_study = maxed_neutrals;
 
@@ -364,14 +427,16 @@ int main(int argc, char *argv[])
 
         float reco_z = 0.;
         float reco_zT = 0.;
-        if (reco_const){ 
+        if (reco_branches){ 
           for (int i = 0; i < NComponent[n]; i++){
             ROOT::Math::PtEtaPhiEVector ConstLorentz(Component_Pt[n][i],
-                Component_Eta[n][i],Component_Phi[n][i],Component_E[n][i]);
+                Component_Eta[n][i],Component_Phi[n][i],Component_P[n][i]);
             reco_z = ConstLorentz.P()/Lorentz.P();
             reco_FF->Fill(reco_z);
             reco_zT = ConstLorentz.Pt()/Lorentz.Pt();
             reco_FF_zT->Fill(reco_zT);
+            reco_comp_eta->Fill(Component_Eta[n][i]);
+            reco_comp_pt->Fill(Component_Pt[n][i]);
           }
         }
         RjoTj->Fill(dP_P);
@@ -396,7 +461,19 @@ int main(int argc, char *argv[])
         for (int ieta = 0; ieta < nEta_bins; ieta++)
           if ((Eta[n] >= Eta_Bins[ieta]) && (Eta[n] < Eta_Bins[ieta+1]))
             momentum_in_eta_bins[ieta]->Fill(Pt[n]);
-      }
+        
+        //electron-jet correlation
+        Float_t True_DeltaPhi = TMath::Abs(TVector2::Phi_mpi_pi(gLorentz.Phi() - electron_gPhi - TMath::Pi()));
+        dPhiTj->Fill(True_DeltaPhi);
+        if (reco_branches)
+        {
+          Float_t Reco_DeltaPhi = TMath::Abs(TVector2::Phi_mpi_pi(Lorentz.Phi() - electron_Phi - TMath::Pi()));
+          dPhiRj->Fill(Reco_DeltaPhi);
+        }
+        dEtaTj->Fill(electron_gEta-gEta[n]);
+        dEtaRj->Fill(electron_gEta-Eta[n]);
+
+      }//cut_to_study
 
       else
       {
@@ -430,12 +507,6 @@ int main(int argc, char *argv[])
       }
 
       jet_cut_counter[0]+=1.; //Jets that only pass continue statements
-      Float_t True_DeltaPhi = TMath::Abs(TVector2::Phi_mpi_pi(gLorentz.Phi() - electron_gPhi - TMath::Pi()));
-      Float_t Reco_DeltaPhi = TMath::Abs(TVector2::Phi_mpi_pi(Lorentz.Phi() - electron_gPhi - TMath::Pi()));
-      dPhiTj->Fill(True_DeltaPhi);
-      dPhiRj->Fill(Reco_DeltaPhi);
-      dEtaTj->Fill(electron_gEta-gEta[n]);
-      dEtaRj->Fill(electron_gEta-Eta[n]);
 
       //Inclusive Spectra
       Rjve->Fill(electron_gE,E[n]);
@@ -489,6 +560,8 @@ int main(int argc, char *argv[])
   comp_pid->Write();
   comp_pt->Scale(1./comp_pt->GetEntries());
   comp_pt->Write();
+  reco_comp_eta->Write();
+  reco_comp_pt->Write();
   P_Component_vs_JetEta->Write();
   Pt_Component_vs_JetEta->Write();
   n_neutrals_vs_dP_P->Write();
@@ -558,6 +631,11 @@ int main(int argc, char *argv[])
   Q2_anticut->Write();
   truth_FF->Write();
   truth_FF_zT->Write();
+  reco_FF->Write();
+  reco_FF_zT->Write();
+  all_truth_FF->Write();
+  all_truth_FF_zT->Write();
+  aT_edPhi->Write();
   All_truth_E_histo->Write();
   // H_dR->Write();
   // H_NExtra_Matches->Write();

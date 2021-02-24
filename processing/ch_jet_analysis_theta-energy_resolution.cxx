@@ -3,7 +3,6 @@
 #include <cstdio>
 #include <cmath>
 #include <iostream>
-#include <filesystem>
 
 // Root includes
 #include <TROOT.h>
@@ -24,7 +23,6 @@
 #include <TTreeReaderValue.h>
 #include <TTreeReaderArray.h>
 
-namespace fs = std::filesystem;
 using namespace std;
 
 // Forward-declaring functions
@@ -61,12 +59,6 @@ int main(int argc, char ** argv) {
 	if (plot_mrad)
 	  rad_mrad_string = "[mrad]";
 	
-	if (!fs::is_directory("../data"  ) || !fs::exists("../data"  )) fs::create_directory("../data"  ); // Create directory if it does not exist
-	if (!fs::is_directory("tables"   ) || !fs::exists("tables"   )) fs::create_directory("tables"   );
-	if (!fs::is_directory("../output") || !fs::exists("../output")) fs::create_directory("../output");
-	if (!fs::is_directory("fits"     ) || !fs::exists("fits"     )) fs::create_directory("fits"     );
-	if (!fs::is_directory("results"  ) || !fs::exists("results"  )) fs::create_directory("results"  );
-
 	cout << "\033[1;31m********************************************************************\nUSEFUL INFO:\033[0m\nWill be loading data from file: '" << argv[5] << "' assumed to be in directory 'data'" << endl;
 
 	if     (atoi(argv[1])==1){use_widths = true ;	cout << "Will be using widths from table\n" ;}
@@ -412,7 +404,7 @@ int main(int argc, char ** argv) {
 
 		    if (N_Missing_Cut){
 		      //f_gaus_dpp[et][p] = double_gaus(h1_dpp_p_et_bins[et][p],-0.02,0.02,-0.2,0.01,TString("dpp"),et,p); //dphi cut
-		      f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.02,0.02);
+		      f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.01,0.01);
 		      f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.0008,0.0008);
 		      f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.005,0.005);
 		      // f_gaus_dth[et][p] = double_gaus(h1_dth_p_et_bins[et][p],-0.002,0.002,-0.005,0.005,TString("dth"),et,p);
