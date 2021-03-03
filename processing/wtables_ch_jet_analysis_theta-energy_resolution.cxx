@@ -306,7 +306,7 @@ int main(int argc, char ** argv) {
   for (Long64_t ev = 0; ev < nEntries; ev++){
     T->GetEntry(ev);
     if (ev%10000==0) fprintf(stderr,"\r%d: Entry %lli out of %d",__LINE__,ev,nEntries);
-    //if (ev==500000) break;
+    if (ev==500000) break;
     for (int n = 0; n < njets; ++n) {
 
       if (NComponent[n] < 4) continue;
@@ -710,6 +710,13 @@ int main(int argc, char ** argv) {
   c1 -> Write("c1");
   TVT_eta_bin.Write("TVT_eta_bin");
   TVT_mom_bin.Write("TVT_mom_bin");
+  TDirectory *dpp_dir =Fout->mkdir("dpp_histos");
+  dpp_dir->cd();
+  for(int p = 0 ; p < size_mom_bin-1 ; p++){
+    for(int et = 0 ; et < size_eta_bin-1 ; et++){ 
+    h1_dpp_p_et_bins[et][p]->Write(Form("h1_dpp_et_%i_p_%i_bin",et,p));
+    }
+  } 
   Fout -> Close();
 
   // -------------------------------------------------------------
