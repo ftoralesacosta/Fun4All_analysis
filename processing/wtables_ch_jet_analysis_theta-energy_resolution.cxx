@@ -99,11 +99,19 @@ int main(int argc, char ** argv) {
   string raw_fname = argv[6];
   TString infile = "../data/" + raw_fname;
   raw_fname.resize(raw_fname.size()-5);
-  TString outfile = "../output/new_Missing_const_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
+
+  TString outfile; 
+
+  if (do_const_cut && N_Missing_Cut)
+    outfile = "../output/new_No_Missing_const_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
+
+  if (do_const_cut && !N_Missing_Cut)
+    TString outfile = "../output/new_Missing_const_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
+
   if (!do_const_cut)
     outfile = "../output/NoCuts_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
-  else if (N_Missing_Cut)
-    TString outfile = "../output/new_No_Missing_const_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
+
+  cout<<endl<<"Output Root File = "<<outfile<<endl;
   TString tab_name = "tables/tab_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".txt";
   TString out_pdf = "output_fits_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".pdf";
   TString out_pdf2 = "results/results_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".pdf";
@@ -306,7 +314,7 @@ int main(int argc, char ** argv) {
   for (Long64_t ev = 0; ev < nEntries; ev++){
     T->GetEntry(ev);
     if (ev%10000==0) fprintf(stderr,"\r%d: Entry %lli out of %d",__LINE__,ev,nEntries);
-    if (ev==500000) break;
+    //if (ev==500000) break;
     for (int n = 0; n < njets; ++n) {
 
       if (NComponent[n] < 4) continue;
@@ -710,11 +718,29 @@ int main(int argc, char ** argv) {
   c1 -> Write("c1");
   TVT_eta_bin.Write("TVT_eta_bin");
   TVT_mom_bin.Write("TVT_mom_bin");
+
   TDirectory *dpp_dir =Fout->mkdir("dpp_histos");
   dpp_dir->cd();
   for(int p = 0 ; p < size_mom_bin-1 ; p++){
     for(int et = 0 ; et < size_eta_bin-1 ; et++){ 
     h1_dpp_p_et_bins[et][p]->Write(Form("h1_dpp_et_%i_p_%i_bin",et,p));
+    }
+  } 
+
+  TDirectory *dph_dir =Fout->mkdir("dph_histos");
+  dph_dir->cd();
+  for(int p = 0 ; p < size_mom_bin-1 ; p++){
+    for(int et = 0 ; et < size_eta_bin-1 ; et++){ 
+    h1_dph_p_et_bins[et][p]->Write(Form("h1_dph_et_%i_p_%i_bin",et,p));
+    }
+  } 
+
+
+  TDirectory *dth_dir =Fout->mkdir("dth_histos");
+  dth_dir->cd();
+  for(int p = 0 ; p < size_mom_bin-1 ; p++){
+    for(int et = 0 ; et < size_eta_bin-1 ; et++){ 
+    h1_dth_p_et_bins[et][p]->Write(Form("h1_dth_et_%i_p_%i_bin",et,p));
     }
   } 
   Fout -> Close();
