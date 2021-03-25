@@ -106,7 +106,7 @@ int main(int argc, char ** argv) {
     outfile = "../output/new_No_Missing_const_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
 
   if (do_const_cut && !N_Missing_Cut)
-    TString outfile = "../output/new_Missing_const_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
+    outfile = "../output/new_Missing_const_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
 
   if (!do_const_cut)
     outfile = "../output/NoCuts_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
@@ -254,13 +254,23 @@ int main(int argc, char ** argv) {
             ";Energy Scale;Counts",n_des_bins,0.75,1.05);
       }
 
-      else {
+      else if ((!N_Missing_Cut) && (do_const_cut)){
         h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),
-            ";dP/P;Counts",60,-0.4,0.8);
+            ";dP/P;Counts",360,-0.4,0.8);
         h1_dth_p_et_bins[et][p] = new TH1F(Form("h1_dth_p_et_bins_%i_%i",et,p),
-            ";d#theta [rad];Counts",n_dth_bins,-0.2,0.2);
+            ";d#theta [rad];Counts",600,-0.2,0.2);
         h1_dph_p_et_bins[et][p] = new TH1F(Form("h1_dph_p_et_bins_%i_%i",et,p),
-            ";d#phi [rad];Counts",n_dph_bins,-0.2,0.2);
+            ";d#phi [rad];Counts",300,-0.2,0.2);
+        h1_des_p_et_bins[et][p] = new TH1F(Form("h1_des_p_et_bins_%i_%i",et,p),
+            ";Energy Scale;Counts",n_des_bins,0.0,2.);
+      }
+      else if (!do_const_cut){
+        h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),
+            ";dP/P;Counts",360,-0.4,0.8);
+        h1_dth_p_et_bins[et][p] = new TH1F(Form("h1_dth_p_et_bins_%i_%i",et,p),
+            ";d#theta [rad];Counts",30,-0.04,0.04);
+        h1_dph_p_et_bins[et][p] = new TH1F(Form("h1_dph_p_et_bins_%i_%i",et,p),
+            ";d#phi [rad];Counts",15,-0.04,0.04);
         h1_des_p_et_bins[et][p] = new TH1F(Form("h1_des_p_et_bins_%i_%i",et,p),
             ";Energy Scale;Counts",n_des_bins,0.0,2.);
       }
@@ -327,11 +337,10 @@ int main(int argc, char ** argv) {
       int n_neutral = 0;
       int n_ch = 0;
       int n_neutral_max = 1;
-      bool maxed_neutrals = true;
       for (int i = 0; i < NComponent[n]; i++){
 
-        //eta_const_cut = (  ( (abs(gComponent_Eta[n][i]) > 1.06) && (abs(gComponent_Eta[n][i]) < 1.13) )
-        //    || (abs(gComponent_Eta[n][i]) > 3.5)  );
+        //eta_const_cut = (  ( (abs(gComponent_Eta[n][i]) > 1.04) && (abs(gComponent_Eta[n][i]) < 1.15) )
+        //    || (abs(gComponent_Eta[n][i]) > 3.5)  );//Aluminum Cone between 1.06 and 1.13 eta
         eta_const_cut = (  ( (abs(Component_Eta[n][i]) > 1.04) && (abs(Component_Eta[n][i]) < 1.15) )
             || (abs(Component_Eta[n][i]) > 3.5)  );
 
@@ -340,6 +349,8 @@ int main(int argc, char ** argv) {
 
         if (eta_const_cut || pt_const_cut) break; //skip jets that fail (general cut)
       }
+
+      if (eta_const_cut || pt_const_cut) continue;
 
       for (int t = 0; t < gNComponent[n]; t++){
         if (gComponent_Charge[n][t] == 0)
@@ -443,11 +454,21 @@ int main(int argc, char ** argv) {
         f_gaus_des[et][p] = new TF1(Form("f_gaus_des_%i_%i",et,p),"gaus",0.5,1.0);
       }
 
-      else{//n_miss
+      else if ((do_const_cut) && (N_Missing_Cut)){//n_miss
+      //else if ((do_const_cut) && (N_Missing_Cut)){//n_miss
         f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.02,0.02);
         f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.03,0.03);
         f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.03,0.03);
         f_gaus_des[et][p] = new TF1(Form("f_gaus_des_%i_%i",et,p),"gaus",0.5,1.0);
+      }
+      else if (!do_const_cut){//below is not in keynote slides, added 3/24
+        f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.02,0.02);
+        f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.002,0.002);
+        f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.005,0.005);
+        f_gaus_des[et][p] = new TF1(Form("f_gaus_des_%i_%i",et,p),"gaus",0.5,1.0);
+        //f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.02,0.02);//not a double gaus. StdDev taken
+        //f_gaus_dth[et][p] = double_gaus(h1_dth_p_et_bins[et][p],-0.0008,0.0008,-0.03,0.03,"dth",et,p);
+        //f_gaus_dph[et][p] = double_gaus(h1_dph_p_et_bins[et][p],-0.002,0.002,-0.03,0.03,"dph",et,p);
       }
     }//p
   }//et
@@ -485,6 +506,7 @@ int main(int argc, char ** argv) {
       else{
         width_dpp[et][p] = h1_dpp_p_et_bins[et][p]->GetStdDev();
         error_dpp[et][p] = width_dpp[et][p]/sqrt(2*(h1_dpp_p_et_bins[et][p]->GetEntries())-2);
+        //error on stdev = sigma/sqrt{2*(n-1)}
         mean_dpp[et][p] = h1_dpp_p_et_bins[et][p]->GetMean();
 
         //Full Width at Half Max for dP/P
@@ -497,11 +519,13 @@ int main(int argc, char ** argv) {
       }
 
       // Theta resolution
-      c_fits_th[et] -> cd(p+1);
       float rad_mrad = 1.;;
       if (plot_mrad)
         rad_mrad = 1000.;
+      c_fits_th[et] -> cd(p+1);
       h1_dth_p_et_bins[et][p] -> Draw();	h1_dth_p_et_bins[et][p] -> Fit(Form("f_gaus_dth_%i_%i",et,p),"RQ");
+      //h1_dth_p_et_bins[et][p] -> Draw();  h1_dth_p_et_bins[et][p] -> Fit(f_gaus_dpp[et][p],"RQ");
+      //if (f_gaus_dth[et][p] -> GetParameter(2)>0) continue;
       width_dth[et][p] = f_gaus_dth[et][p] -> GetParameter(2)*rad_mrad;
       error_dth[et][p] = f_gaus_dth[et][p] -> GetParError(2)*rad_mrad;
       mean_dth[et][p] = f_gaus_dth[et][p] -> GetParameter(1)*rad_mrad;
@@ -509,13 +533,25 @@ int main(int argc, char ** argv) {
       // Phi resolution
       c_fits_ph[et] -> cd(p+1);
       h1_dph_p_et_bins[et][p] -> Draw();	h1_dph_p_et_bins[et][p] -> Fit(Form("f_gaus_dph_%i_%i",et,p),"RQ");
+      //h1_dph_p_et_bins[et][p] -> Draw();  h1_dph_p_et_bins[et][p] -> Fit(f_gaus_dpp[et][p],"RQ");
+      //if (f_gaus_dph[et][p] -> GetParameter(2)>0) continue;
       width_dph[et][p] = f_gaus_dph[et][p] -> GetParameter(2)*rad_mrad;
       error_dph[et][p] = (f_gaus_dph[et][p] -> GetParError(2)*rad_mrad);
       mean_dph[et][p] = f_gaus_dph[et][p] -> GetParameter(1)*rad_mrad;
 
+      if (!do_const_cut)
+      {
+        width_dth[et][p] = h1_dth_p_et_bins[et][p]->GetStdDev()*rad_mrad;
+        error_dth[et][p] = width_dth[et][p]/sqrt(2*(h1_dth_p_et_bins[et][p]->GetEntries())-2);
+        mean_dth[et][p] = h1_dth_p_et_bins[et][p]->GetMean()*rad_mrad;
+        
+        width_dph[et][p] = h1_dph_p_et_bins[et][p]->GetStdDev()*rad_mrad;
+        error_dph[et][p] = width_dph[et][p]/sqrt(2*(h1_dph_p_et_bins[et][p]->GetEntries())-2);
+        mean_dph[et][p] = h1_dph_p_et_bins[et][p]->GetMean()*rad_mrad;
+      }
       // Energy Scale resolution
       c_fits_es[et] -> cd(p+1);
-      h1_des_p_et_bins[et][p] -> Draw();	h1_des_p_et_bins[et][p] -> Fit(Form("f_gaus_des_%i_%i",et,p),"RQ");
+      //h1_des_p_et_bins[et][p] -> Draw();	h1_des_p_et_bins[et][p] -> Fit(Form("f_gaus_des_%i_%i",et,p),"RQ");
       width_des[et][p] = f_gaus_des[et][p] -> GetParameter(2);
       error_des[et][p] = (f_gaus_des[et][p] -> GetParError(2));
       mean_des[et][p] = f_gaus_des[et][p] -> GetParameter(1);
