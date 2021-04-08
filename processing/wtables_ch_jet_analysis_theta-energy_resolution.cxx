@@ -103,13 +103,13 @@ int main(int argc, char ** argv) {
   TString outfile; 
 
   if (do_const_cut && N_Missing_Cut)
-    outfile = "../output/new_No_Missing_const_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
+    outfile = "../output/reco_No_Missing_const_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
 
   if (do_const_cut && !N_Missing_Cut)
-    outfile = "../output/new_Missing_const_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
+    outfile = "../output/reco_Missing_const_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
 
   if (!do_const_cut)
-    outfile = "../output/NoCuts_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
+    outfile = "../output/reco_NoCuts_output_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".root";
 
   cout<<endl<<"Output Root File = "<<outfile<<endl;
   TString tab_name = "tables/tab_mom_res_" + raw_fname + Form("sigma_eta_%i_p_%i_",size_eta_bin-1,size_mom_bin-1) + ".txt";
@@ -242,7 +242,17 @@ int main(int argc, char ** argv) {
         h1_des_p_et_bins[et][p] = new TH1F(Form("h1_des_p_et_bins_%i_%i",et,p),";d(E_{Reco}/E_{Truth});Counts",n_des_bins,
             approx_mean_des[et][p]-approx_sig_des_3_0[et][p],approx_mean_des[et][p]+approx_sig_des_3_0[et][p]);
       }
-
+      if (!do_const_cut){
+        h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),
+            ";dP/P;Counts",360,-0.4,0.8);
+        h1_dth_p_et_bins[et][p] = new TH1F(Form("h1_dth_p_et_bins_%i_%i",et,p),
+            ";d#theta [rad];Counts",30,-0.04,0.04);
+        h1_dph_p_et_bins[et][p] = new TH1F(Form("h1_dph_p_et_bins_%i_%i",et,p),
+            ";d#phi [rad];Counts",15,-0.04,0.04);
+        h1_des_p_et_bins[et][p] = new TH1F(Form("h1_des_p_et_bins_%i_%i",et,p),
+            ";Energy Scale;Counts",n_des_bins,0.0,2.);
+      }
+      
       else if (N_Missing_Cut){
         h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),
             ";dP/P;Counts",n_dpp_bins,-0.05,0.05);
@@ -254,23 +264,13 @@ int main(int argc, char ** argv) {
             ";Energy Scale;Counts",n_des_bins,0.75,1.05);
       }
 
-      else if ((!N_Missing_Cut) && (do_const_cut)){
+      else if (!N_Missing_Cut) {
         h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),
             ";dP/P;Counts",360,-0.4,0.8);
         h1_dth_p_et_bins[et][p] = new TH1F(Form("h1_dth_p_et_bins_%i_%i",et,p),
             ";d#theta [rad];Counts",600,-0.2,0.2);
         h1_dph_p_et_bins[et][p] = new TH1F(Form("h1_dph_p_et_bins_%i_%i",et,p),
             ";d#phi [rad];Counts",300,-0.2,0.2);
-        h1_des_p_et_bins[et][p] = new TH1F(Form("h1_des_p_et_bins_%i_%i",et,p),
-            ";Energy Scale;Counts",n_des_bins,0.0,2.);
-      }
-      else if (!do_const_cut){
-        h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),
-            ";dP/P;Counts",360,-0.4,0.8);
-        h1_dth_p_et_bins[et][p] = new TH1F(Form("h1_dth_p_et_bins_%i_%i",et,p),
-            ";d#theta [rad];Counts",30,-0.04,0.04);
-        h1_dph_p_et_bins[et][p] = new TH1F(Form("h1_dph_p_et_bins_%i_%i",et,p),
-            ";d#phi [rad];Counts",15,-0.04,0.04);
         h1_des_p_et_bins[et][p] = new TH1F(Form("h1_des_p_et_bins_%i_%i",et,p),
             ";Energy Scale;Counts",n_des_bins,0.0,2.);
       }
@@ -318,6 +318,22 @@ int main(int argc, char ** argv) {
     prettyTH1F( h1_des_v_et_p_bins[p] , p , 20 , 1. , 100. );
   }
 
+  //Histograms to verify cuts:
+ /* truth and constituent pt, p, and eta */ 
+ /*   number of missinc constituets distribution */
+ /*   jet pT,p, and eta distributions */
+  TH1F *reco_jet_p = new TH1F("reco_jet_p","Reco Jet Momentum Distribution",200,0,50);
+  TH1F *reco_jet_eta = new TH1F("reco_jet_eta","Reco Jet #eta",50,-5,5);
+  TH1F *reco_comp_pt = new TH1F("reco_comp_pt","Jet reco Component p_{T}",200,0,20);
+  TH1F *reco_comp_eta = new TH1F("reco_comp_eta","Jet reco Component #eta",100,-5,5);
+  TH1F *reco_NConstituents = new TH1F("reco_nconstituents","Number of Reconstructed Jet Constituents",20,0,20);
+
+  TH1F *truth_jet_p = new TH1F("truth_jet_p","Truth Jet Momentum Distribution",200,0,50);
+  TH1F *truth_jet_eta = new TH1F("truth_jet_eta","Truth Jet #eta",50,-5,5);
+  TH1F *truth_comp_pt = new TH1F("truth_comp_pt","Jet Truth Component p_{T}",200,0,20);
+  TH1F *truth_comp_eta = new TH1F("truth_comp_eta","Jet Truth Component #eta",100,-5,5);
+  TH1F *truth_NConstituents = new TH1F("truth_nconstituents","Number of truthnstructed Jet Constituents",20,0,20);
+
   cout << "\033[1;31m********************************************************************\033[0m\n";
   // -------------------------------------------------------------
   // Loop over entries of the tree	
@@ -329,6 +345,7 @@ int main(int argc, char ** argv) {
 
       if (NComponent[n] < 4) continue;
       if (isnan(gE[n])) continue;
+      if (E[n] < 4.0) continue;
       ROOT::Math::PtEtaPhiEVector Lorentz(Pt[n],Eta[n],Phi[n],E[n]);
       ROOT::Math::PtEtaPhiEVector gLorentz(gPt[n],gEta[n],gPhi[n],gE[n]);
 
@@ -337,14 +354,15 @@ int main(int argc, char ** argv) {
       int n_neutral = 0;
       int n_ch = 0;
       int n_neutral_max = 1;
+      /* for (int i = 0; i < gNComponent[n]; i++){ */
       for (int i = 0; i < NComponent[n]; i++){
 
-        //eta_const_cut = (  ( (abs(gComponent_Eta[n][i]) > 1.04) && (abs(gComponent_Eta[n][i]) < 1.15) )
-        //    || (abs(gComponent_Eta[n][i]) > 3.5)  );//Aluminum Cone between 1.06 and 1.13 eta
+        /* eta_const_cut = (  ( (abs(gComponent_Eta[n][i]) > 1.04) && (abs(gComponent_Eta[n][i]) < 1.15) ) */
+        /*     || (abs(gComponent_Eta[n][i]) > 3.5)  );//Aluminum Cone between 1.06 and 1.13 eta */
         eta_const_cut = (  ( (abs(Component_Eta[n][i]) > 1.04) && (abs(Component_Eta[n][i]) < 1.15) )
             || (abs(Component_Eta[n][i]) > 3.5)  );
 
-        //pt_const_cut = (gComponent_Pt[n][i] < constituent_pT_threshold(gComponent_Eta[n][i],B_Field));
+        /* pt_const_cut = (gComponent_Pt[n][i] < constituent_pT_threshold(gComponent_Eta[n][i],B_Field)); */
         pt_const_cut = (Component_Pt[n][i] < constituent_pT_threshold(Component_Eta[n][i],B_Field));
 
         if (eta_const_cut || pt_const_cut) break; //skip jets that fail (general cut)
@@ -372,6 +390,23 @@ int main(int argc, char ** argv) {
         if ( (N_Missing_Cut) && (N_Missing >= N_Missing_Max) ) continue;
         if ( (!N_Missing_Cut) && (N_Missing < N_Missing_Max) ) continue; //anticut of above
       }
+      
+      //After last continue statement, fill histos that check cuts
+      reco_jet_p->Fill(Lorentz.P());
+      reco_jet_eta->Fill(Lorentz.Eta());
+      reco_NConstituents->Fill(NComponent[n]);
+        for (int r = 0; r < NComponent[n]; r++){
+          reco_comp_pt->Fill(Component_Pt[n][r]);
+          reco_comp_eta->Fill(Component_Eta[n][r]);
+        }
+
+      truth_jet_p->Fill(gLorentz.P());
+      truth_jet_eta->Fill(gLorentz.Eta());
+      truth_NConstituents->Fill(gNComponent[n]);
+        for (int t = 0; t < gNComponent[n]; t++){
+          truth_comp_pt->Fill(gComponent_Pt[n][t]);
+          truth_comp_eta->Fill(gComponent_Eta[n][t]);
+        }
 
       float dth = Lorentz.Theta() - gLorentz.Theta();
       float geta = gLorentz.Eta();
@@ -446,7 +481,13 @@ int main(int argc, char ** argv) {
             approx_mean_des[et][p]+approx_sig_des_1_1[et][p]);
       }
 
-      else if (N_Missing_Cut){
+      if (!do_const_cut){
+        f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.02,0.02);
+        f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.002,0.002);
+        f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.005,0.005);
+        f_gaus_des[et][p] = new TF1(Form("f_gaus_des_%i_%i",et,p),"gaus",0.5,1.0);
+      }
+      else if (N_Missing_Cut){//n_miss < 1
           
         f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.01,0.01);
         f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.0008,0.0008);
@@ -454,21 +495,11 @@ int main(int argc, char ** argv) {
         f_gaus_des[et][p] = new TF1(Form("f_gaus_des_%i_%i",et,p),"gaus",0.5,1.0);
       }
 
-      else if ((do_const_cut) && (N_Missing_Cut)){//n_miss
-      //else if ((do_const_cut) && (N_Missing_Cut)){//n_miss
+      else if  (!N_Missing_Cut){//n_miss >= 1
         f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.02,0.02);
         f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.03,0.03);
         f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.03,0.03);
         f_gaus_des[et][p] = new TF1(Form("f_gaus_des_%i_%i",et,p),"gaus",0.5,1.0);
-      }
-      else if (!do_const_cut){//below is not in keynote slides, added 3/24
-        f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.02,0.02);
-        f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.002,0.002);
-        f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.005,0.005);
-        f_gaus_des[et][p] = new TF1(Form("f_gaus_des_%i_%i",et,p),"gaus",0.5,1.0);
-        //f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.02,0.02);//not a double gaus. StdDev taken
-        //f_gaus_dth[et][p] = double_gaus(h1_dth_p_et_bins[et][p],-0.0008,0.0008,-0.03,0.03,"dth",et,p);
-        //f_gaus_dph[et][p] = double_gaus(h1_dph_p_et_bins[et][p],-0.002,0.002,-0.03,0.03,"dph",et,p);
       }
     }//p
   }//et
@@ -779,6 +810,17 @@ int main(int argc, char ** argv) {
     h1_dth_p_et_bins[et][p]->Write(Form("h1_dth_et_%i_p_%i_bin",et,p));
     }
   } 
+  reco_jet_p->Write();
+  reco_jet_eta->Write();
+  reco_NConstituents->Write();
+  reco_comp_pt->Write();
+  reco_comp_eta->Write();
+  
+  truth_jet_p->Write();
+  truth_jet_eta->Write();
+  truth_NConstituents->Write();
+  truth_comp_pt->Write();
+  truth_comp_eta->Write();
   Fout -> Close();
 
   // -------------------------------------------------------------
@@ -862,11 +904,11 @@ float constituent_pT_threshold(float eta, float B_Field)
 
   eta = abs(eta);
   float eta_bins[6] = {3.5,2.5,2.0,1.5,1.0,0.0};
-  float pT_threshold_array[5] = {0.1,0.13,0.70,0.15,0.2}; 
+  float pT_threshold_array[5] = {0.1,0.13,0.07,0.15,0.2}; 
   if (B_Field == 3.0)
   {
-    pT_threshold_array[0]=0.15; pT_threshold_array[1]=0.22;                                                                                                                 
-    pT_threshold_array[2] = 0.16; pT_threshold_array[3]=0.3;                                                                                                                
+    pT_threshold_array[0]=0.15; pT_threshold_array[1]=0.22;
+    pT_threshold_array[2] = 0.16; pT_threshold_array[3]=0.3;
     pT_threshold_array[4]=0.4;
   }
   float pT_threshold = 0;
