@@ -266,11 +266,11 @@ int main(int argc, char ** argv) {
 
       else if (!N_Missing_Cut) {
         h1_dpp_p_et_bins[et][p] = new TH1F(Form("h1_dpp_p_et_bins_%i_%i",et,p),
-            ";dP/P;Counts",360,-0.4,0.8);
+            ";dP/P;Counts",120,-0.4,0.8);
         h1_dth_p_et_bins[et][p] = new TH1F(Form("h1_dth_p_et_bins_%i_%i",et,p),
-            ";d#theta [rad];Counts",600,-0.2,0.2);
+            ";d#theta [rad];Counts",120,-0.2,0.2);
         h1_dph_p_et_bins[et][p] = new TH1F(Form("h1_dph_p_et_bins_%i_%i",et,p),
-            ";d#phi [rad];Counts",300,-0.2,0.2);
+            ";d#phi [rad];Counts",80,-0.2,0.2);
         h1_des_p_et_bins[et][p] = new TH1F(Form("h1_des_p_et_bins_%i_%i",et,p),
             ";Energy Scale;Counts",n_des_bins,0.0,2.);
       }
@@ -354,18 +354,19 @@ int main(int argc, char ** argv) {
       int n_neutral = 0;
       int n_ch = 0;
       int n_neutral_max = 1;
-      /* for (int i = 0; i < gNComponent[n]; i++){ */
-      for (int i = 0; i < NComponent[n]; i++){
 
+      /* for (int i = 0; i < gNComponent[n]; i++){ */
         /* eta_const_cut = (  ( (abs(gComponent_Eta[n][i]) > 1.04) && (abs(gComponent_Eta[n][i]) < 1.15) ) */
         /*     || (abs(gComponent_Eta[n][i]) > 3.5)  );//Aluminum Cone between 1.06 and 1.13 eta */
+        /* pt_const_cut = (gComponent_Pt[n][i] < constituent_pT_threshold(gComponent_Eta[n][i],B_Field)); */
+
+        //Using Reco-Constituents...
+      for (int i = 0; i < NComponent[n]; i++){
         eta_const_cut = (  ( (abs(Component_Eta[n][i]) > 1.04) && (abs(Component_Eta[n][i]) < 1.15) )
             || (abs(Component_Eta[n][i]) > 3.5)  );
-
-        /* pt_const_cut = (gComponent_Pt[n][i] < constituent_pT_threshold(gComponent_Eta[n][i],B_Field)); */
         pt_const_cut = (Component_Pt[n][i] < constituent_pT_threshold(Component_Eta[n][i],B_Field));
 
-        if (eta_const_cut || pt_const_cut) break; //skip jets that fail (general cut)
+        if (eta_const_cut || pt_const_cut) break; //skip jets that fail. Break Constituent loop, continue jet loop
       }
 
       if (eta_const_cut || pt_const_cut) continue;
@@ -498,7 +499,7 @@ int main(int argc, char ** argv) {
       else if  (!N_Missing_Cut){//n_miss >= 1
         f_gaus_dpp[et][p] = new TF1(Form("f_gaus_dpp_%i_%i",et,p),"gaus",-0.02,0.02);
         f_gaus_dth[et][p] = new TF1(Form("f_gaus_dth_%i_%i",et,p),"gaus",-0.03,0.03);
-        f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.03,0.03);
+        f_gaus_dph[et][p] = new TF1(Form("f_gaus_dph_%i_%i",et,p),"gaus",-0.05,0.05);
         f_gaus_des[et][p] = new TF1(Form("f_gaus_des_%i_%i",et,p),"gaus",0.5,1.0);
       }
     }//p
@@ -587,6 +588,7 @@ int main(int argc, char ** argv) {
       error_des[et][p] = (f_gaus_des[et][p] -> GetParError(2));
       mean_des[et][p] = f_gaus_des[et][p] -> GetParameter(1);
 
+      cout<<"p = "<<p<<" eta "<<et<<endl;
       cout<<__LINE__<<": dph width = "<<width_dph[et][p]<<endl;
       cout<<__LINE__<<": dpp width = "<<width_dpp[et][p]<<endl;
       cout<<__LINE__<<": dth width = "<<width_dth[et][p]<<endl;
@@ -772,6 +774,19 @@ int main(int argc, char ** argv) {
   // Saving histograms
   TFile * Fout = new TFile(outfile,"recreate");
   mom_response->Write();
+
+  reco_jet_p->Write();
+  reco_jet_eta->Write();
+  reco_NConstituents->Write();
+  reco_comp_pt->Write();
+  reco_comp_eta->Write();
+  
+  truth_jet_p->Write();
+  truth_jet_eta->Write();
+  truth_NConstituents->Write();
+  truth_comp_pt->Write();
+  truth_comp_eta->Write();
+
   for(int et = 0 ; et < size_eta_bin-1 ; et++){
     h1_dpp_v_p_et_bins[et] -> Write(Form("h1_dpp_v_p_et_bins_%i",et));
     h1_dth_v_p_et_bins[et] -> Write(Form("h1_dth_v_p_et_bins_%i",et));
@@ -810,17 +825,6 @@ int main(int argc, char ** argv) {
     h1_dth_p_et_bins[et][p]->Write(Form("h1_dth_et_%i_p_%i_bin",et,p));
     }
   } 
-  reco_jet_p->Write();
-  reco_jet_eta->Write();
-  reco_NConstituents->Write();
-  reco_comp_pt->Write();
-  reco_comp_eta->Write();
-  
-  truth_jet_p->Write();
-  truth_jet_eta->Write();
-  truth_NConstituents->Write();
-  truth_comp_pt->Write();
-  truth_comp_eta->Write();
   Fout -> Close();
 
   // -------------------------------------------------------------

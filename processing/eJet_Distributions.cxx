@@ -65,6 +65,7 @@ int main(int argc, char *argv[])
   TString root_file = (TString)argv[iarg];
   
   float B_Field = atof(argv[2]);
+  std::cout<< "B = "<<B_Field<<std::endl;
   std::cout << "Opening: " << (TString)argv[iarg] << std::endl;
   
   TFile *file = TFile::Open(root_file);
@@ -304,6 +305,7 @@ int main(int argc, char *argv[])
   int n_neutral_max = 1;
 
   //--------------------Event & Jet Loops--------------------//
+
   for (Long64_t ev = 0; ev < nEntries; ev++){
     T->GetEntry(ev);
     if (ev%10000==0) fprintf(stderr,"%d: Entry %lli out of %d\n",__LINE__,ev,nEntries);
@@ -336,6 +338,7 @@ int main(int argc, char *argv[])
       aT_edPhi->Fill(AllTrue_DeltaPhi);
     }//all_truth_loop
 
+    //RECO Jet Loop
     for (int n = 0; n < njets; ++n) {
 
       if (std::isnan(gE[n])) continue; //reco jet must have a truth match
@@ -345,16 +348,15 @@ int main(int argc, char *argv[])
       ROOT::Math::PtEtaPhiEVector gLorentz(gPt[n],gEta[n],gPhi[n],gE[n]);
       ROOT::Math::PtEtaPhiEVector e_vector (electron_gPt,electron_gEta,electron_gPhi,electron_gE);
 
-      //--------------------Reco CUTS--------------------//
-      // if (dR > max_DeltaR) continue;
-
+      //--------------------Reco Jet CUTS--------------------//
+      
+       /* if (dR > max_DeltaR) continue; */
       if (E[n] < minE) continue;
       n_reco_constituents->Fill(NComponent[n]);
       if (NComponent[n] < min_comp) continue;
 
       //--------------------Truth Cuts--------------------//
       //if ((gE[n] < 15) || (gE[n] > 20)) continue;
-
       // bool gconst_eta = true;
       // for (int i = 0; i < gNComponent[n]; i++){
       //   if (abs(gComponent_Eta[n][i]) > 3.) gconst_eta=false;
@@ -368,17 +370,25 @@ int main(int argc, char *argv[])
       int n_neutral = 0;
       int n_ch = 0;
       bool maxed_neutrals = true;
+      float constant_p_cut =false;
+      for (int i = 0; i < NComponent[n]; i++){
 
-      for (int i = 0; i < gNComponent[n]; i++){
+        eta_const_cut = (  ( (abs(Component_Eta[n][i]) > 1.06) && (abs(Component_Eta[n][i]) < 1.13) )
+            || (abs(Component_Eta[n][i]) > 3.5)  );
 
+        pt_const_cut = (Component_Pt[n][i] < constituent_pT_threshold(Component_Eta[n][i],B_Field));
 
-        eta_const_cut = (  ( (abs(gComponent_Eta[n][i]) > 1.06) && (abs(gComponent_Eta[n][i]) < 1.13) )
-            || (abs(gComponent_Eta[n][i]) > 3.5)  );
+        if (B_Field == 3.0)
+          constant_p_cut = Component_P[n][i] < 1.0; 
+        if (B_Field > 1.399 && B_Field < 1.4001) //no idea why == 1.4 fails
+          constant_p_cut = Component_P[n][i] < 0.6;
 
-        pt_const_cut = (gComponent_Pt[n][i] < constituent_pT_threshold(gComponent_Eta[n][i],B_Field));
+        // Apply cuts to jet, breaking out of larger jet loop
+        if (eta_const_cut ) break; 
+        if (pt_const_cut ) break; 
+        if (constant_p_cut) break;
+        
 
-        eta_const_cut =abs(gComponent_Eta[n][i]) > 3.5; //FIXME: Undo this later
-        if (eta_const_cut || pt_const_cut) break; //skip jets that fail (general cut)
         if (gComponent_Charge[n][i] == 0)
           n_neutral++;
         else
@@ -389,7 +399,9 @@ int main(int argc, char *argv[])
         if (gComponent_Charge[n][i] == 0)
           gLorentz -= gConstLorentz;//done before jet histograms are filled
       }
-      if (eta_const_cut || pt_const_cut) continue;//see break statement above
+
+      if (eta_const_cut || pt_const_cut || constant_p_cut) continue;//see break statement above
+
       maxed_neutrals =  n_neutral <  n_neutral_max;
 
       float dR = ROOT::Math::VectorUtil::DeltaR(Lorentz,gLorentz);
@@ -410,6 +422,7 @@ int main(int argc, char *argv[])
       //cut_to_study = (NComponent[n] >= min_comp);
       //cut_to_study =( (NComponent[n] > min_comp) && (E[n] > minE) );
       //cut_to_study = ((gNComponent[n] - NComponent[n] - n_neutral) < max_miss_const);
+      //cut_to_study = (constant_p_cut);
       //cut_to_study = pt_const_cut;
       //cut_to_study = maxed_neutrals;
 
@@ -527,12 +540,13 @@ int main(int argc, char *argv[])
 
   jet_cut_counter[2] = jet_cut_counter[1]/jet_cut_counter[0];
   TVectorT<double> TJet_counter(3); //total jets, jets passed, %passed
+  cout<<endl<<"Number of Jets passing Cut:"<<jet_cut_counter[1]<<endl;
   cout<<endl<<"Fraction of Jets passing Cut:"<<jet_cut_counter[2]<<endl;
   for (int i = 0; i < 3; i++) TJet_counter[i] = jet_cut_counter[i];
   //entry loop
 
   //Write to new root file
-  TFile* fout = new TFile("Histograms_Jet_Callibration.root","RECREATE");
+  TFile* fout = new TFile(Form("Histograms_Jet_Callibration_%fT.root",B_Field),"RECREATE");
   TJet_counter.Write("TJet_Counter");
   momentum_response->Write();
   justE->Write();
