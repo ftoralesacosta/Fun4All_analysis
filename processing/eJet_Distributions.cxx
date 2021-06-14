@@ -80,65 +80,38 @@ bool EoverP_2Sigma(float EoverP)
 
 float dphi_res(float B, float jet_phi, float jet_eta, float e_phi, float e_eta)
 {//returns relative error based on 1-sigma of phi resolution
-  /* std::cout<<"Jet Phi = "<<jet_phi<<std::endl; */
-  float jet_sigma = 0; // jet phi res [mrad]
-  float e_sigma = 0;  //electron phi res [mrad]
+
+
   float dphi_percent = 0;
   float mrad_to_rad = 1000;
 
-if (B = 3.0){
-  //Jet Sigma
-  if (jet_eta < -0.5)
-    jet_sigma = 14.06;
-  else if (jet_eta > 0.5)
-    jet_sigma = 15.24;
-  else
-    jet_sigma = 16.43;
-
-  jet_sigma = jet_sigma/mrad_to_rad;
-  /* std::cout<<"Jet Sigma = "<<jet_sigma<<std::endl; */
-
   //electron Sigma
-  if (e_eta < -0.5)
-    e_sigma = 4.;
-  else if (e_eta > 0.5)
-    e_sigma = 0.6;
-  else
-    e_sigma = 4.;
-
+  float e_sigma = 0;  //electron phi res [mrad]
+  if (e_eta < -0.5) e_sigma = 4.;
+  else if (e_eta > 0.5) e_sigma = 0.6;
+  else e_sigma = 4.;
   e_sigma = e_sigma/mrad_to_rad;
-}
-
-else {//1.4T Field
+  
   //Jet Sigma
-  if (jet_eta < -0.5)
-    jet_sigma = 12.27;
-  else if (jet_eta > 0.5)
-    jet_sigma = 13.45;
-  else
-    jet_sigma = 13.29;
+  float eta_bin[] = {-3.0,-1.5,-.5,0.5,1.5,3.0};
+  int n_eta = sizeof(eta_bin)/sizeof(*eta_bin);
+  float jet_sigma_array[] = {11.187,13.351,13.445,14.039,12.539};//1.4T B Field
+  if (B==3.0) {
+    jet_sigma_array[0] = 12.294;
+    jet_sigma_array[1] = 15.815;
+    jet_sigma_array[2] = 16.427;
+    jet_sigma_array[3] = 16.237;
+    jet_sigma_array[4] = 14.236;
+  }
+  float jet_sigma=0;
 
-  jet_sigma = jet_sigma/mrad_to_rad;
-  /* std::cout<<"Jet Sigma = "<<jet_sigma<<std::endl; */
+  for (int i_eta = 0; i_eta < n_eta-1; i_eta++)
+    if (jet_eta > eta_bin[i_eta] && jet_eta >= eta_bin[i_eta+1])
+      jet_sigma = jet_sigma_array[i_eta];
 
-  //electron Sigma
-  if (e_eta < -0.5)
-    e_sigma = 4.;
-  else if (e_eta > 0.5)
-    e_sigma = 0.6;
-  else
-    e_sigma = 4.;
-
-  e_sigma = e_sigma/mrad_to_rad;
-}
-
-dphi_percent = sqrt( pow(jet_sigma/jet_phi,2) + pow(e_sigma/e_phi,2));
-/* std::cout<<"percent = "<<dphi_percent<<std::endl; */
-return dphi_percent;
+  /* std::cout<<__LINE__<<"Jet Sigma = "<<jet_sigma<<" Jet Eta = "<<jet_eta<<std::endl; */  
 
 }
-
-
 
 using namespace std;
 int main(int argc, char *argv[])
@@ -329,9 +302,9 @@ int main(int argc, char *argv[])
   TH1I *n_missed_minuseutrals = new TH1I("n_missed_minusneutrals","No. Missed Jet Components (Truth - Reco - Neutral)",10,-5,5);
   TH1I *simple_ndiff = new TH1I("simple_ndiff", "gNComponent - NComponent", 10,-5,5);
 
- TH1F *central_phi_percent = new TH1F("central_dphi_percent","Sigma Phi (percent)",200,0,100); 
- TH1F *backwards_phi_percent = new TH1F("backwards_dphi_percent","Sigma Phi (percent)",200,0,100); 
- TH1F *forward_phi_percent = new TH1F("forward_dphi_percent","Sigma Phi (percent)",200,0,100); 
+  TH1F *central_phi_percent = new TH1F("central_dphi_percent","Sigma Phi (percent)",200,0,100); 
+  TH1F *backwards_phi_percent = new TH1F("backwards_dphi_percent","Sigma Phi (percent)",200,0,100); 
+  TH1F *forward_phi_percent = new TH1F("forward_dphi_percent","Sigma Phi (percent)",200,0,100); 
 
   int nEta_bins = 8;
   int root_colors[8] = {6,52,60,70,80,90,94,100};
