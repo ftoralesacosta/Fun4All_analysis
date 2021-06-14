@@ -82,7 +82,6 @@ float dphi_res(float B, float jet_phi, float jet_eta, float e_phi, float e_eta)
 {//returns relative error based on 1-sigma of phi resolution
 
 
-  float dphi_percent = 0;
   float mrad_to_rad = 1000;
 
   //electron Sigma
@@ -103,13 +102,18 @@ float dphi_res(float B, float jet_phi, float jet_eta, float e_phi, float e_eta)
     jet_sigma_array[3] = 16.237;
     jet_sigma_array[4] = 14.236;
   }
-  float jet_sigma=0;
 
+  float jet_sigma=0;
   for (int i_eta = 0; i_eta < n_eta-1; i_eta++)
     if (jet_eta > eta_bin[i_eta] && jet_eta >= eta_bin[i_eta+1])
       jet_sigma = jet_sigma_array[i_eta];
 
-  /* std::cout<<__LINE__<<"Jet Sigma = "<<jet_sigma<<" Jet Eta = "<<jet_eta<<std::endl; */  
+  jet_sigma = jet_sigma/mrad_to_rad;
+
+  float dphi_percent = sqrt( pow(jet_sigma/jet_phi,2) + pow(e_sigma/e_phi,2));
+  /* std::cout<<__LINE__<<"Delta Phi (%) Sigma = "<<dphi_percent<<" Jet Eta = "<<jet_eta<<std::endl; */  
+
+  return dphi_percent;
 
 }
 
@@ -305,6 +309,7 @@ int main(int argc, char *argv[])
   TH1F *central_phi_percent = new TH1F("central_dphi_percent","Sigma Phi (percent)",200,0,100); 
   TH1F *backwards_phi_percent = new TH1F("backwards_dphi_percent","Sigma Phi (percent)",200,0,100); 
   TH1F *forward_phi_percent = new TH1F("forward_dphi_percent","Sigma Phi (percent)",200,0,100); 
+  TH1F *whole_phi_percent = new TH1F("dphi_percent","Sigma Phi (percent)",200,0,100); 
 
   int nEta_bins = 8;
   int root_colors[8] = {6,52,60,70,80,90,94,100};
@@ -513,6 +518,7 @@ int main(int argc, char *argv[])
       momentum_response->Fill(Lorentz.P(),gLorentz.P());
 
       float dphi_percent= dphi_res(B_Field,Lorentz.Phi(), Lorentz.Eta(), electron_gPhi,electron_gEta);
+      whole_phi_percent->Fill(dphi_percent);
       if (Lorentz.Eta() < -0.5)
         backwards_phi_percent->Fill(dphi_percent);
 
@@ -768,6 +774,7 @@ int main(int argc, char *argv[])
   central_phi_percent->Write();
   backwards_phi_percent->Write();
   forward_phi_percent->Write();
+  whole_phi_percent->Write();
   for (int ieta = 0; ieta < nEta_bins; ieta++) {
     momentum_in_eta_bins[ieta]->Write();
     anticut_momentum_in_eta_bins[ieta]->Write();
