@@ -28,6 +28,7 @@
 #include <TTreeReaderArray.h>
 #include <cmath>
 #include <TVectorT.h>
+#include <TRandom.h>
 
 float calc_Q_square(float inE, ROOT::Math::PtEtaPhiEVector v)
 {
@@ -53,6 +54,69 @@ float constituent_pT_threshold(float eta,float B_field)
 
   return pT_threshold;
 }
+
+float smear_E(float E)
+{
+  //smears electron energy according to backward calorimeter in EIC yellow report  
+  //http://www.eicug.org/web/sites/default/files/Yellow_Report_v1.1.pdf Page 21.
+
+  float Sigma_EoverE = sqrt(pow(0.02/sqrt(E),2)+pow(0.03,2));
+  float Sigma_E = Sigma_EoverE*E;
+  float E_smeared =gRandom->Gaus(E,Sigma_E);
+  /* fprintf(stderr,"%d: E Truth = %1.3f : E_Sigma = %1.3f : E Smear = %1.3f\n",__LINE__,E,Sigma_E,E_smeared); */
+
+  return E_smeared;
+}
+
+bool EoverP_2Sigma(float EoverP)
+{
+//determines if input is within 3 sigma of electron E/P Curve.
+//Curve is a normal distribution obtained from smearing E_Truth
+  float Sigma = 0.03;
+  float Mean = 1.002; 
+  bool within_2sigma = (EoverP >= Mean-2*Sigma && EoverP <= Mean+2*Sigma); 
+  return within_2sigma;
+}
+
+float dphi_res(float B, float jet_phi, float jet_eta, float e_phi, float e_eta)
+{//returns relative error based on 1-sigma of phi resolution
+
+
+  float mrad_to_rad = 1000;
+
+  //electron Sigma
+  float e_sigma = 0;  //electron phi res [mrad]
+  if (e_eta < -0.5) e_sigma = 4.;
+  else if (e_eta > 0.5) e_sigma = 0.6;
+  else e_sigma = 4.;
+  e_sigma = e_sigma/mrad_to_rad;
+  
+  //Jet Sigma
+  float eta_bin[] = {-3.0,-1.5,-.5,0.5,1.5,3.0};
+  int n_eta = sizeof(eta_bin)/sizeof(*eta_bin);
+  float jet_sigma_array[] = {11.187,13.351,13.445,14.039,12.539};//1.4T B Field
+  if (B==3.0) {
+    jet_sigma_array[0] = 12.294;
+    jet_sigma_array[1] = 15.815;
+    jet_sigma_array[2] = 16.427;
+    jet_sigma_array[3] = 16.237;
+    jet_sigma_array[4] = 14.236;
+  }
+
+  float jet_sigma=0;
+  for (int i_eta = 0; i_eta < n_eta-1; i_eta++)
+    if (jet_eta > eta_bin[i_eta] && jet_eta >= eta_bin[i_eta+1])
+      jet_sigma = jet_sigma_array[i_eta];
+
+  jet_sigma = jet_sigma/mrad_to_rad;
+
+  float dphi_percent = sqrt( pow(jet_sigma/jet_phi,2) + pow(e_sigma/e_phi,2));
+  /* std::cout<<__LINE__<<"Delta Phi (%) Sigma = "<<dphi_percent<<" Jet Eta = "<<jet_eta<<std::endl; */  
+
+  return dphi_percent;
+
+}
+
 using namespace std;
 int main(int argc, char *argv[])
 {
@@ -63,37 +127,46 @@ int main(int argc, char *argv[])
   //for (int iarg = 1; iarg < argc; iarg++) {
   int iarg = 1;
   TString root_file = (TString)argv[iarg];
-  
+
   float B_Field = atof(argv[2]);
   std::cout<< "B = "<<B_Field<<std::endl;
   std::cout << "Opening: " << (TString)argv[iarg] << std::endl;
-  
+
+  float scale_factor = 1.;
+  if (B_Field == 3.0)
+    scale_factor = 0.4010189811930663;
+  else //1.4T
+    scale_factor = 0.4165767978773618;
+  std::cout<<"Applying Scale Factor of "<<scale_factor<<" to simulate EIC Luminosity \n";
+
   TFile *file = TFile::Open(root_file);
-  
+
   if (file == NULL) {
     std::cout << " File Fail" << std::endl;
     exit(EXIT_FAILURE); 
   } 
-  
+
   file->Print();
-  
+
   TTree *_tree_event = dynamic_cast<TTree *>(file->Get("T"));
 
   if (_tree_event == NULL) {
     std::cout << " Tree Fail " << std::endl;
     exit(EXIT_FAILURE);
   }
-    
+
   // enum {MaxNumJets = 20,kMaxConstituents = 100};
   TString infile = argv[1];
   TFile * F = new TFile(infile);
   if (F == NULL) { std::cout << " File Fail" << std::endl; exit(EXIT_FAILURE); }
-  
+
   TTree *T = dynamic_cast<TTree *>(F->Get("T"));
   if (_tree_event == NULL) { std::cout << " Tree Fail " << std::endl; exit(EXIT_FAILURE); }
   //TTree * T = (TTree*) F -> Get("T");
   Int_t njets,nAlltruthjets;
   int nEntries = T -> GetEntries();
+  nEntries *= scale_factor; //Applies EIC Luminosity Scale Factor
+
   const int MaxNumJets = 20;
   const int kMaxConstituents = 100;
 
@@ -105,21 +178,21 @@ int main(int argc, char *argv[])
   Float_t electron_E,electron_Eta,electron_Phi,electron_Pt;
 
   array<array<Float_t, kMaxConstituents >, MaxNumJets > gComponent_Eta,gComponent_PID,
-                         gComponent_Pt,gComponent_Phi,gComponent_E, gComponent_Charge;
+    gComponent_Pt,gComponent_Phi,gComponent_E, gComponent_Charge;
 
   array<array<Float_t, kMaxConstituents >, MaxNumJets > Component_Eta,Component_PID,
-                         Component_Pt,Component_Phi,Component_P, Component_Charge;
+    Component_Pt,Component_Phi,Component_P, Component_Charge;
 
   array<array<Float_t, kMaxConstituents >, MaxNumJets > all_Component_Eta,all_Component_PID, all_Component_E,
-                         all_Component_Pt,all_Component_Phi,all_Component_P, all_Component_Charge;
-  
+    all_Component_Pt,all_Component_Phi,all_Component_P, all_Component_Charge;
+
   T -> SetBranchAddress("njets",&njets);
   T -> SetBranchAddress("e",&E);
   T -> SetBranchAddress("eta",&Eta);
   T -> SetBranchAddress("phi",&Phi);
   T -> SetBranchAddress("pt",&Pt);
   T -> SetBranchAddress("nComponent",&NComponent);
-  
+
   bool reco_branches = true;
   if (reco_branches){
     T -> SetBranchAddress("Constituent_recoEta", Component_Eta.data());
@@ -233,6 +306,11 @@ int main(int argc, char *argv[])
   TH1I *n_missed_minuseutrals = new TH1I("n_missed_minusneutrals","No. Missed Jet Components (Truth - Reco - Neutral)",10,-5,5);
   TH1I *simple_ndiff = new TH1I("simple_ndiff", "gNComponent - NComponent", 10,-5,5);
 
+  TH1F *central_phi_percent = new TH1F("central_dphi_percent","Sigma Phi (percent)",200,0,100); 
+  TH1F *backwards_phi_percent = new TH1F("backwards_dphi_percent","Sigma Phi (percent)",200,0,100); 
+  TH1F *forward_phi_percent = new TH1F("forward_dphi_percent","Sigma Phi (percent)",200,0,100); 
+  TH1F *whole_phi_percent = new TH1F("dphi_percent","Sigma Phi (percent)",200,0,100); 
+
   int nEta_bins = 8;
   int root_colors[8] = {6,52,60,70,80,90,94,100};
   int Eta_Bins[9] = {-4,-3,-2,-1,0,1,2,3,4};
@@ -285,6 +363,13 @@ int main(int argc, char *argv[])
   TH1F *truth_E_anticut = new TH1F("anticut_truth_E","Truth Jet Energy (anticut)",100,0,50);
   TH1F *truth_P_anticut = new TH1F("anticut_truth_P","Truth Jet Momentum (anticut)",100,0,50);
 
+
+  //Electron Histograms
+  TH1F *truth_electron_E = new TH1F("truth_eletron_E","E_{Truth}^{e}",300,0,60);
+  TH1F *smeared_electron_E = new TH1F("smeared_electron_E","E_{smeared}^{e}",300,0,60);
+  TH1F *electron_EoverP = new TH1F("electron_EoverP","Electron E/P",400,0.8,1.2);
+  TH1F *smeared_EoverP = new TH1F("smeared_electron_EoverP","Smeared Electron E/P",400,0.8,1.2);
+
   TH1F *truth_FF = new TH1F("truth_fragmentation_fuction","Truth Jet Charged Fragmentation Function",24,0,1);
   TH1F *truth_FF_zT = new TH1F("truth_fragmentation_fuction_zT","Truth Jet Charged Fragmentation Function (zT)",24,0,1);
   TH1F *reco_FF = new TH1F("fragmentation_fuction","Reco Jet Charged Fragmentation Function",24,0,1);
@@ -310,9 +395,24 @@ int main(int argc, char *argv[])
     T->GetEntry(ev);
     if (ev%10000==0) fprintf(stderr,"%d: Entry %lli out of %d\n",__LINE__,ev,nEntries);
     //if (ev == 500000) break;
+
+    //ELECTRON SMEARING
+    ROOT::Math::PtEtaPhiEVector electron_gLorentz(electron_gPt,electron_gEta,electron_gPhi,electron_gE);//Truth
+    ROOT::Math::PtEtaPhiMVector electron_Lorentz(electron_Pt,electron_Eta,electron_Phi,0.0005);//Reco (electron E is not reco well)
+
+    truth_electron_E->Fill(electron_gE);
+    electron_EoverP->Fill(electron_gE/electron_gLorentz.P());
+    float_t electron_E_smeared = smear_E(electron_gE);
+
+    smeared_electron_E->Fill(electron_E_smeared);
+    float e_EoverP = electron_E_smeared/electron_Lorentz.P();
+    smeared_EoverP->Fill(e_EoverP);
+    if (not(EoverP_2Sigma(e_EoverP)))
+      continue;
+
     for (int ia = 0; ia < nAlltruthjets; ia++){
       if (isnan(all_truthE[ia])) continue;
-      
+
       ROOT::Math::PtEtaPhiEVector ALorentz(all_truthPt[ia],all_truthEta[ia],all_truthPhi[ia],all_truthE[ia]);
       for (int i = 0; i < alltruth_NComponent[ia]; i++)
       {
@@ -348,9 +448,10 @@ int main(int argc, char *argv[])
       ROOT::Math::PtEtaPhiEVector gLorentz(gPt[n],gEta[n],gPhi[n],gE[n]);
       ROOT::Math::PtEtaPhiEVector e_vector (electron_gPt,electron_gEta,electron_gPhi,electron_gE);
 
+
       //--------------------Reco Jet CUTS--------------------//
-      
-       /* if (dR > max_DeltaR) continue; */
+
+      /* if (dR > max_DeltaR) continue; */
       if (E[n] < minE) continue;
       n_reco_constituents->Fill(NComponent[n]);
       if (NComponent[n] < min_comp) continue;
@@ -387,7 +488,7 @@ int main(int argc, char *argv[])
         if (eta_const_cut ) break; 
         if (pt_const_cut ) break; 
         if (constant_p_cut) break;
-        
+
 
         if (gComponent_Charge[n][i] == 0)
           n_neutral++;
@@ -415,6 +516,16 @@ int main(int argc, char *argv[])
       n_charged->Fill(n_ch);
       n_constituents->Fill(gNComponent[n]);
       momentum_response->Fill(Lorentz.P(),gLorentz.P());
+
+      float dphi_percent= dphi_res(B_Field,Lorentz.Phi(), Lorentz.Eta(), electron_gPhi,electron_gEta);
+      whole_phi_percent->Fill(dphi_percent);
+      if (Lorentz.Eta() < -0.5)
+        backwards_phi_percent->Fill(dphi_percent);
+
+      else if (Lorentz.Eta() > 0.5)
+        forward_phi_percent->Fill(dphi_percent);
+      else 
+        central_phi_percent->Fill(dphi_percent);
 
       //--------------------Cut To Study--------------------//
       bool cut_to_study = true; //Check for conflicts with continue statements
@@ -474,7 +585,7 @@ int main(int argc, char *argv[])
         for (int ieta = 0; ieta < nEta_bins; ieta++)
           if ((Eta[n] >= Eta_Bins[ieta]) && (Eta[n] < Eta_Bins[ieta+1]))
             momentum_in_eta_bins[ieta]->Fill(Pt[n]);
-        
+
         //electron-jet correlation
         Float_t True_DeltaPhi = TMath::Abs(TVector2::Phi_mpi_pi(gLorentz.Phi() - electron_gPhi - TMath::Pi()));
         dPhiTj->Fill(True_DeltaPhi);
@@ -566,6 +677,12 @@ int main(int argc, char *argv[])
   truth_eta->Write();
   truth_phi->Write();
 
+
+  truth_electron_E->Write();
+  smeared_electron_E->Write();
+  electron_EoverP->Write();
+  smeared_EoverP->Write();
+
   reco_nconst->Write();
   RjoTj->GetXaxis()->SetTitle("dp/p");
   RjoTj->Write();
@@ -654,6 +771,10 @@ int main(int argc, char *argv[])
   // H_dR->Write();
   // H_NExtra_Matches->Write();
 
+  central_phi_percent->Write();
+  backwards_phi_percent->Write();
+  forward_phi_percent->Write();
+  whole_phi_percent->Write();
   for (int ieta = 0; ieta < nEta_bins; ieta++) {
     momentum_in_eta_bins[ieta]->Write();
     anticut_momentum_in_eta_bins[ieta]->Write();
